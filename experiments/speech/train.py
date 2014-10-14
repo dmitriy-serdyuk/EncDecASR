@@ -7,12 +7,12 @@ import pprint
 
 import numpy
 
-#from groundhog.trainer.SGD_adadelta import SGD as SGD_adadelta
-#from groundhog.trainer.SGD import SGD as SGD
-#from groundhog.trainer.SGD_momentum import SGD as SGD_momentum
+from groundhog.trainer.SGD_adadelta import SGD as SGD_adadelta
+from groundhog.trainer.SGD import SGD as SGD
+from groundhog.trainer.SGD_momentum import SGD as SGD_momentum
 from groundhog.mainLoop import MainLoop
-from experiments.speech.encdec import RNNEncoderDecoder #, prototype_state, get_batch_iterator
-import experiments.nmt
+from encdec import RNNEncoderDecoder #, prototype_state, get_batch_iterator
+import experiments.speech
 from iterators import CMUIterator, get_cmu_batch_iterator
 
 
@@ -60,7 +60,7 @@ class RandomSamplePrinter(object):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--state", help="State to use")
-    parser.add_argument("--proto",  default="prototype_state",
+    parser.add_argument("--proto",  default="prototype_speech_state",
         help="Prototype state to use for state")
     parser.add_argument("--skip-init", action="store_true",
         help="Skip parameter initilization")
@@ -71,7 +71,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    state = getattr(experiments.nmt, args.proto)()
+    state = getattr(experiments.speech, args.proto)()
     if args.state:
         if args.state.endswith(".py"):
             state.update(eval(open(args.state).read()))
@@ -93,7 +93,15 @@ def main():
     logger.debug("Load data")
     train_data = get_cmu_batch_iterator(state=state, rng=rng, logger=logger, subset='train')
     logger.debug("Compile trainer")
-    algo = eval(state['algo'])(lm_model, state, train_data)
+    if state['algo'] == 'SGD_adadelta':
+        algo = SGD_adadelta(lm_model, state, train_data)
+    elif state['algo'] == 'SGD':
+        algo = SGD(lm_model, state, train_data)
+    elif state['algo'] == 'SGD_momentum':
+        algo = SGD_momentum(lm_model, state, train_data)
+    else:
+        raise Exception("Illegal training algorithm")
+
     logger.debug("Run training")
     main = MainLoop(train_data, None, None, lm_model, algo, state, None,
             reset=state['reset'],

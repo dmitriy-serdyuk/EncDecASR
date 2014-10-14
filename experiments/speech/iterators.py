@@ -151,7 +151,7 @@ An iterator that transforms the batches that pass through it.
         self.properties.pop('sources',None)
         
         self.transforms = transforms
-        if type(iterator)==TransformingIterator:
+        if type(iterator) == TransformingIterator:
             self.iterator = iterator.iterator
             self_trans = self.transforms
             self.transforms = {}
@@ -172,6 +172,10 @@ An iterator that transforms the batches that pass through it.
         t = self.transforms
         utt = self.iterator.next()
         return self.make(t[s](getattr(utt, s)) if s in t else getattr(utt, s) for s in self.source_names)
+
+    def start(self, start_offset):
+        self.iterator.start(start_offset)
+
 
 class LimitBatchSizeIterator(AbstractWrappedIterator):
     def __init__(self, iterator, batch_size):
@@ -326,13 +330,19 @@ class CMUIterator(AbstractDataIterator):
         ret_inorder = (utt_name, utt_feats, utt_targets)
         return self.make(ret_inorder[i] for i in self.reorder)
 
+    def start(self, start_offset):
+        #self.queue = Queue.Queue(maxsize=self.queue_size)
+        #self.gather = PytablesBitextFetcher(self, start_offset)
+        #self.gather.daemon = True
+        #self.gather.start()
+        self.position = 0
+
 
 def get_cmu_batch_iterator(subset, state, rng, logger, single_utterances=False, shuffle_override=None,
                            add_utterance_names=False, peek=False):
     if 'randomize_iterator' in state and state['randomize_iterator']:
         logger.info("Randomly resetting the random seed for data iterator")
         rng = np.random.RandomState()
-    data = state['data_dir'] + '/' + subset + '-'
 
     if add_utterance_names:
         sources = ('features','targets', 'utterance_names')
