@@ -15,6 +15,7 @@ import cPickle
 
 from pylearn2.utils.rng import make_np_rng
 
+
 class AbstractDataIterator(object):
     """
 The AbstractDataIterator implements the iterator protocol with the following additions:
@@ -146,11 +147,13 @@ An iterator that transforms the batches that pass through it.
         super(TransformingIterator, self).__init__(iterator=iterator, **kwargs)
         if drop_untransformed:
             self.OutputClass = AbstractDataIterator.create_output_class(transforms.keys())
-        
+
         #these will get changed, the rest souldn't
-        self.properties.pop('sources',None)
+        self.properties.pop('sources', None)
         
         self.transforms = transforms
+        self.next_offset = 0
+
         if type(iterator) == TransformingIterator:
             self.iterator = iterator.iterator
             self_trans = self.transforms
@@ -173,10 +176,13 @@ An iterator that transforms the batches that pass through it.
         utt = self.iterator.next(peek)
         return {s: t[s](utt[s]) if s in t else utt[s] for s in self.source_names}
 
-    def next_offset(self, peek=False):
-        t = self.transforms
-        utt = self.iterator.next(peek)
-        return {s: t[s](utt[s]) if s in t else utt[s] for s in self.source_names}
+    #def next_offset(self, peek=False):
+    #    t = self.transforms
+    #    utt = self.iterator.next(peek)
+    #    return {s: t[s](utt[s]) if s in t else utt[s] for s in self.source_names}
+
+    def reset(self):
+        self.iterator.reset()
 
     def start(self, start_offset):
         self.iterator.start(start_offset)
@@ -200,6 +206,7 @@ class LimitBatchSizeIterator(AbstractWrappedIterator):
             self.batch_queue.reverse()
         return self.batch_queue.pop()
 
+
 class _BatchIt:
     "A class to hold an utterance along with the index of the currrent row"
     
@@ -210,6 +217,7 @@ class _BatchIt:
         self.pos=0
         self.len=batch[0].shape[0]
         self.permutation = permutation
+
 
 class ShuffledExamplesIterator(AbstractWrappedIterator):
     _default_seed = (17, 2, 946)
@@ -279,6 +287,7 @@ class ShuffledExamplesIterator(AbstractWrappedIterator):
                 rem_pos[bad_idx] = self.rng.randint(len(batch_pool), size=bad_idx.sum())
         return ret
 
+
 class DataSpaceConformingIterator(AbstractWrappedIterator):
     def __init__(self, iterator, destination_data_specs, iterator_data_specs=None, rename_map=None, **kwargs):
         super(DataSpaceConformingIterator, self).__init__(iterator=iterator, **kwargs)
@@ -326,23 +335,25 @@ class CMUIterator(AbstractDataIterator):
             self.data_dict = cPickle.load(finp)
 
         self.position = 0
+        self.next_offset = 0
 
     def next(self, peek=False):
         utt_name, utt_feats = '', self.data_dict['train_phones'][self.position]
         utt_targets = self.data_dict['train_words'][self.position]
-        #ret_inorder = (utt_name, utt_feats, utt_targets)
-        #return self.make(ret_inorder[i] for i in self.reorder)
-        Ret = namedtuple('Ret', ['x', 'y',
-            'x_mask', 'y_mask'])
-        return dict(x=utt_feats, y=utt_targets,
-                x_mask=np.ones((2, len(utt_feats)), dtype='float32'),
-                y_mask=np.ones((2, len(utt_targets)), dtype='float32'))
+        if not peek:
+            self.position += 1
+        x_mask = np.ones((len(utt_feats) + 1, 1), dtype='float32')
+        y_mask = np.ones((len(utt_targets) + 1, 1), dtype='float32')
+        return dict(x=utt_feats, x_mask=x_mask, y=utt_targets, y_mask=y_mask)
 
     def start(self, start_offset):
         #self.queue = Queue.Queue(maxsize=self.queue_size)
         #self.gather = PytablesBitextFetcher(self, start_offset)
         #self.gather.daemon = True
         #self.gather.start()
+        self.position = 0
+
+    def reset(self):
         self.position = 0
 
 
