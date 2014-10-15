@@ -253,7 +253,7 @@ def prototype_encdec_state():
     state['n_sym_target'] = state['null_sym_target'] + 1
 
     state['seqlen'] = 30
-    state['bs']  = 80
+    state['bs'] = 80
 
     state['dim'] = 1000
     state['rank_n_approx'] = 620
@@ -298,8 +298,8 @@ def prototype_phrase_lstm_state():
 def prototype_speech_state():
     state = prototype_state()
 
-    state['n_sym_source'] = 40
-    state['n_sym_target'] = 72
+    state['n_sym_source'] = 72
+    state['n_sym_target'] = 40
     state['prefix'] = 'results/'
 
     return state
