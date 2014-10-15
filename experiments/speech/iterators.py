@@ -161,17 +161,22 @@ An iterator that transforms the batches that pass through it.
                 sf = self_trans.get(s, None)
                 if of is None:
                     if sf is not None:
-                        self.transforms[s]=sf
+                        self.transforms[s] = sf
                 else:
                     if sf is None:
-                        self.transforms[s]=of
+                        self.transforms[s] = of
                     else:
                         self.transforms[s] = lambda X, of=of, sf=sf: sf(of(X)) 
         
-    def next(self):
+    def next(self, peek=False):
         t = self.transforms
-        utt = self.iterator.next()
-        return self.make(t[s](getattr(utt, s)) if s in t else getattr(utt, s) for s in self.source_names)
+        utt = self.iterator.next(peek)
+        return {s: t[s](utt[s]) if s in t else utt[s] for s in self.source_names}
+
+    def next_offset(self, peek=False):
+        t = self.transforms
+        utt = self.iterator.next(peek)
+        return {s: t[s](utt[s]) if s in t else utt[s] for s in self.source_names}
 
     def start(self, start_offset):
         self.iterator.start(start_offset)
@@ -310,14 +315,12 @@ class DataSpaceConformingIterator(AbstractWrappedIterator):
 
 
 class CMUIterator(AbstractDataIterator):
-    default_order = ('utterance_names', 'features', 'targets')
 
-    def __init__(self, filename, sources=('utterance_names', 'features', 'targets')):
+    def __init__(self, filename, sources=('x', 'y', 'x_mask', 'y_mask')):
         """
             Read the kaldi data streams given by feats_rx and targets_rx
         """
         super(CMUIterator, self).__init__(source_names=sources)
-        self.reorder = tuple(CMUIterator.default_order.index(s) for s in sources)
 
         with open(filename, 'rt') as finp:
             self.data_dict = cPickle.load(finp)
@@ -327,8 +330,13 @@ class CMUIterator(AbstractDataIterator):
     def next(self, peek=False):
         utt_name, utt_feats = '', self.data_dict['train_phones'][self.position]
         utt_targets = self.data_dict['train_words'][self.position]
-        ret_inorder = (utt_name, utt_feats, utt_targets)
-        return self.make(ret_inorder[i] for i in self.reorder)
+        #ret_inorder = (utt_name, utt_feats, utt_targets)
+        #return self.make(ret_inorder[i] for i in self.reorder)
+        Ret = namedtuple('Ret', ['x', 'y',
+            'x_mask', 'y_mask'])
+        return dict(x=utt_feats, y=utt_targets,
+                x_mask=np.ones((2, len(utt_feats)), dtype='float32'),
+                y_mask=np.ones((2, len(utt_targets)), dtype='float32'))
 
     def start(self, start_offset):
         #self.queue = Queue.Queue(maxsize=self.queue_size)
@@ -344,24 +352,20 @@ def get_cmu_batch_iterator(subset, state, rng, logger, single_utterances=False, 
         logger.info("Randomly resetting the random seed for data iterator")
         rng = np.random.RandomState()
 
-    if add_utterance_names:
-        sources = ('features','targets', 'utterance_names')
-    else:
-        sources = ('features','targets')
+    #sources = ('features','targets')
 
-    eol_ary = np.array([[0]])
     def tfun_targets(feats):
-        return np.append(feats, eol_ary, axis=0)[:, :, None ]
+        return np.append(feats, np.zeros(1, dtype=feats.dtype), axis=0)[:, None]
 
     def tfun_feats(feats):
-        return np.append(np.zeros((1, feats.shape[1]), dtype=feats.dtype), feats, axis=0)[:, :, None]
+        return np.append(np.zeros(1, dtype=feats.dtype), feats, axis=0)[:, None]
 
     def get_iter_fun(rng):
         sequence_iterator = CMUIterator(
-            filename='/data/lisatmp3/serdyuk/processing_scripts/tmp_data.pkl',
-            sources=sources
+            filename='/data/lisatmp3/serdyuk/processing_scripts/tmp_data.pkl'
         )
-        trans_seq_iter = TransformingIterator(sequence_iterator, dict(targets=tfun_targets, features=tfun_feats))
+        trans_seq_iter = TransformingIterator(sequence_iterator, dict(y=tfun_targets, x=tfun_feats,
+                                                                      y_mask=lambda x: x, x_mask=lambda x: x))
         return trans_seq_iter
 
     return get_iter_fun(rng)
