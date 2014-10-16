@@ -303,5 +303,8 @@ def prototype_speech_state():
     state['prefix'] = 'results/'
     state['indx_word_target'] = "/data/lisatmp3/serdyuk/cmudict/all_data.pkl"
     state['indx_word_src'] = "/data/lisatmp3/serdyuk/cmudict/all_data.pkl"
+    state['hookFreq'] = 100
+    state['big_batch'] = 10000
+    state['mini_batch'] = 1000
 
     return state

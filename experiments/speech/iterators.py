@@ -324,7 +324,7 @@ class DataSpaceConformingIterator(AbstractWrappedIterator):
 
 
 class BatchIterator(AbstractWrappedIterator):
-    def __init__(self, iterator, big_batch_size=1000, mini_batch_size=100, **kwargs):
+    def __init__(self, iterator, big_batch_size=10000, mini_batch_size=1000, **kwargs):
         super(BatchIterator, self).__init__(iterator=iterator, **kwargs)
 
         self.big_batch_size = big_batch_size
@@ -439,7 +439,8 @@ def get_cmu_batch_iterator(subset, state, rng, logger, single_utterances=False, 
             filename='/data/lisatmp3/serdyuk/cmudict/all_data.pkl',
             sources=sources
         )
-        sequence_iterator = BatchIterator(sequence_iterator)
+        sequence_iterator = BatchIterator(sequence_iterator, big_batch_size=state['big_batch'],
+                                          mini_batch_size=state['mini_batch'])
         #trans_seq_iter = TransformingIterator(sequence_iterator, dict(y=tfun_targets, x=tfun_feats,
         #                                                              y_mask=tfun_mask_targets, x_mask=tfun_mask_feats))
         return sequence_iterator
