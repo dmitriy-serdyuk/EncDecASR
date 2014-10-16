@@ -54,9 +54,14 @@ specific sources can be always queried by name.
                     
         self.properties=properties
 
-    
     #Mandatory functions to override:
     def next(self):
+        raise NotImplementedError()
+
+    def reset(self):
+        raise NotImplementedError()
+
+    def start(self, start_offset=0):
         raise NotImplementedError()
     
     #Normal operation
@@ -107,7 +112,7 @@ class AbstractWrappedIterator(AbstractDataIterator):
 An abstract class for a iterator that wraps other iterators and transforms its data
     """
     def __init__(self, iterator, **kwargs):
-        super(AbstractWrappedIterator, self).__init__(OutputClass = iterator.OutputClass, **kwargs)
+        super(AbstractWrappedIterator, self).__init__(OutputClass=iterator.OutputClass, **kwargs)
         self.iterator = iterator.__iter__()
         self.properties = dict(self.iterator.properties)
         
@@ -176,15 +181,10 @@ An iterator that transforms the batches that pass through it.
         utt = self.iterator.next(peek)
         return {s: t[s](utt[s]) if s in t else utt[s] for s in self.source_names}
 
-    #def next_offset(self, peek=False):
-    #    t = self.transforms
-    #    utt = self.iterator.next(peek)
-    #    return {s: t[s](utt[s]) if s in t else utt[s] for s in self.source_names}
-
     def reset(self):
         self.iterator.reset()
 
-    def start(self, start_offset):
+    def start(self, start_offset=0):
         self.iterator.start(start_offset)
 
 
@@ -257,11 +257,11 @@ class ShuffledExamplesIterator(AbstractWrappedIterator):
                     for batch in batch_pool[0].batch)
         
         #fill row by row
-        i=0
+        i = 0
         while i < positions.shape[0]:
             p = positions[i]
             batch = batch_pool[p]
-            if batch.pos<batch.len:
+            if batch.pos < batch.len:
                 batchelem = batch.permutation[batch.pos]
                 for r,u in izip(ret,batch.batch):
                     r[i,...] = u[batchelem,...]
@@ -323,9 +323,65 @@ class DataSpaceConformingIterator(AbstractWrappedIterator):
         return ret
 
 
+class BatchIterator(AbstractWrappedIterator):
+    def __init__(self, iterator, big_batch_size=1000, mini_batch_size=100, **kwargs):
+        super(BatchIterator, self).__init__(iterator=iterator, **kwargs)
+
+        self.big_batch_size = big_batch_size
+
+        self.mini_batch_size = mini_batch_size
+        self.next_offset = 0
+        self.batch_position = 0
+        self.current_big_batch = None
+
+    def reset(self):
+        self.batch_position = 0
+        self.iterator.reset()
+
+    def start(self, start_offset=0):
+        self.batch_position = 0
+        self.iterator.start(start_offset)
+
+    def next(self, peek=False):
+        def extend_with_zeros(arrays):
+            max_length = max([len(arr) for arr in arrays])
+            new_arrays = [np.append(arr, np.zeros(max_length - len(arr), dtype=arr.dtype)) for arr in arrays]
+            masks = [np.append(np.ones(len(arr), dtype="float32"),
+                               np.zeros(max_length - len(arr), dtype="float32"), axis=0) for arr in arrays]
+            return new_arrays, masks
+
+        def merge_batch(batch):
+            keys = self.iterator.source_names
+            out_dict = {}
+            for key in keys:
+                arrays = [d[key].T for d in batch]
+                arrays, masks = extend_with_zeros(arrays)
+                out_dict[key] = np.array(arrays).T
+                out_dict[key + '_mask'] = np.array(masks).T
+            return out_dict
+
+        if self.current_big_batch and self.batch_position < self.big_batch_size:
+            m_batch = self.current_big_batch[self.batch_position: self.batch_position + self.mini_batch_size]
+            if not peek:
+                self.batch_position += self.mini_batch_size
+            new_batch = merge_batch(m_batch)
+            return new_batch
+        self.batch_position = 0
+        batch = []
+        for i in xrange(self.big_batch_size):
+            batch += [self.iterator.next()]
+        np.random.shuffle(batch)
+        self.current_big_batch = batch
+        mini_batch = batch[0:self.mini_batch_size]
+        if not peek:
+            self.batch_position += self.mini_batch_size
+        ans = merge_batch(mini_batch)
+        return ans
+
+
 class CMUIterator(AbstractDataIterator):
 
-    def __init__(self, filename, sources=('x', 'y', 'x_mask', 'y_mask')):
+    def __init__(self, filename, sources=('x', 'y')):
         """
             Read the kaldi data streams given by feats_rx and targets_rx
         """
@@ -336,21 +392,18 @@ class CMUIterator(AbstractDataIterator):
 
         self.position = 0
         self.next_offset = 0
+        self.size = len(self.data_dict['train_words'])
 
     def next(self, peek=False):
+        if self.position >= self.size:
+            self.position = 0
         utt_name, utt_feats = '', self.data_dict['train_phones'][self.position]
         utt_targets = self.data_dict['train_words'][self.position]
         if not peek:
             self.position += 1
-        x_mask = np.ones((len(utt_feats) + 1, 1), dtype='float32')
-        y_mask = np.ones((len(utt_targets) + 1, 1), dtype='float32')
-        return dict(x=utt_feats, x_mask=x_mask, y=utt_targets, y_mask=y_mask)
+        return dict(x=utt_feats, y=utt_targets)
 
-    def start(self, start_offset):
-        #self.queue = Queue.Queue(maxsize=self.queue_size)
-        #self.gather = PytablesBitextFetcher(self, start_offset)
-        #self.gather.daemon = True
-        #self.gather.start()
+    def start(self, start_offset=0):
         self.position = 0
 
     def reset(self):
@@ -363,20 +416,32 @@ def get_cmu_batch_iterator(subset, state, rng, logger, single_utterances=False, 
         logger.info("Randomly resetting the random seed for data iterator")
         rng = np.random.RandomState()
 
-    #sources = ('features','targets')
+    sources = ('x', 'y')
 
     def tfun_targets(feats):
-        return np.append(feats, np.zeros(1, dtype=feats.dtype), axis=0)[:, None]
+        print "Targets ", feats.shape
+        return np.append(feats, np.zeros((1, feats.shape[1]), dtype=feats.dtype), axis=0)
 
     def tfun_feats(feats):
-        return np.append(np.zeros(1, dtype=feats.dtype), feats, axis=0)[:, None]
+        print "Features ", feats.shape
+        return np.append(np.zeros((1, feats.shape[1]), dtype=feats.dtype), feats, axis=0)
+
+    def tfun_mask_targets(feats):
+        print "Mask features ", feats.shape
+        return np.append(feats, np.ones(1, dtype=feats.dtype), axis=0)
+
+    def tfun_mask_feats(feats):
+        print "Mask targets ", feats.shape
+        return np.append(np.ones(1, dtype=feats.dtype), feats, axis=0)
 
     def get_iter_fun(rng):
         sequence_iterator = CMUIterator(
-            filename='/data/lisatmp3/serdyuk/processing_scripts/tmp_data.pkl'
+            filename='/data/lisatmp3/serdyuk/processing_scripts/tmp_data.pkl',
+            sources=sources
         )
-        trans_seq_iter = TransformingIterator(sequence_iterator, dict(y=tfun_targets, x=tfun_feats,
-                                                                      y_mask=lambda x: x, x_mask=lambda x: x))
-        return trans_seq_iter
+        sequence_iterator = BatchIterator(sequence_iterator)
+        #trans_seq_iter = TransformingIterator(sequence_iterator, dict(y=tfun_targets, x=tfun_feats,
+        #                                                              y_mask=tfun_mask_targets, x_mask=tfun_mask_feats))
+        return sequence_iterator
 
     return get_iter_fun(rng)
