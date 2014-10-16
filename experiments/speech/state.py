@@ -301,10 +301,10 @@ def prototype_speech_state():
     state['n_sym_source'] = 73
     state['n_sym_target'] = 41
     state['prefix'] = 'results/'
-    state['indx_word_target'] = "/data/lisatmp3/serdyuk/cmudict/all_data.pkl"
+    state['indx_word'] = "/data/lisatmp3/serdyuk/cmudict/all_data.pkl"
     state['indx_word_src'] = "/data/lisatmp3/serdyuk/cmudict/all_data.pkl"
     state['hookFreq'] = 100
-    state['big_batch'] = 10000
-    state['mini_batch'] = 1000
+    state['big_batch'] = 5000
+    state['mini_batch'] = 500
 
     return state

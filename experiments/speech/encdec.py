@@ -1413,7 +1413,7 @@ class RNNEncoderDecoder(object):
             cost_layer=self.predictions,
             sample_fn=self.create_sampler(),
             weight_noise_amount=self.state['weight_noise_amount'],
-            indx_word=self.state['indx_word_target'],
+            indx_word=self.state['indx_word'],
             indx_word_src=self.state['indx_word_src'],
             rng=self.rng)
         self.pronunciation_model.load_dict(self.state)

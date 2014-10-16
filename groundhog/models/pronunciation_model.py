@@ -220,13 +220,13 @@ class PronunciationModel(Model):
         with open(self.indx_word, 'rt') as finp:
             self.data_dict = pkl.load(finp)
 
-        self.word_indxs_target = dict(map(lambda (x, y): (y, x), self.data_dict['alphabet'].items()))
-        self.word_indxs = dict(map(lambda (x, y): (y, x), self.data_dict['phone_vocabulary'].items()))
+        self.word_indxs = dict(map(lambda (x, y): (y, x), self.data_dict['alphabet'].items()))
+        self.word_indxs_src = dict(map(lambda (x, y): (y, x), self.data_dict['phone_vocabulary'].items()))
 
         del self.data_dict
 
     def get_samples(self, length = 30, temp=1, *inps):
-        if not hasattr(self, 'symbol_indxs'):
+        if not hasattr(self, 'word_indxs'):
             self.load_dict({})
         self._get_samples(self, length, temp, *inps)
 
