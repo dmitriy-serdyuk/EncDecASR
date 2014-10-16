@@ -22,7 +22,7 @@ from groundhog.layers import\
         LastState,\
         DropOp,\
         Concatenate
-from groundhog.models import LM_Model
+from groundhog.models import LM_Model, PronunciationModel
 from groundhog.datasets import PytablesBitextIterator
 from groundhog.utils import sample_zeros, sample_weights_orth, init_bias, sample_weights_classic
 import groundhog.utils as utils
@@ -1406,6 +1406,20 @@ class RNNEncoderDecoder(object):
             pprint.pformat(sorted([p.name for p in self.lm_model.params]))))
         return self.lm_model
 
+    def create_pronunciation_model(self):
+        if hasattr(self, 'pronunciation_model'):
+            return self.pronunciation_model
+        self.pronunciation_model = PronunciationModel(
+            cost_layer=self.predictions,
+            sample_fn=self.create_sampler(),
+            weight_noise_amount=self.state['weight_noise_amount'],
+            indx_word=self.state['indx_word_target'],
+            indx_word_src=self.state['indx_word_src'],
+            rng=self.rng)
+        self.pronunciation_model.load_dict(self.state)
+        logger.debug("Model params:\n{}".format(
+            pprint.pformat(sorted([p.name for p in self.pronunciation_model.params]))))
+        return self.pronunciation_model
     def create_representation_computer(self):
         if not hasattr(self, "repr_fn"):
             self.repr_fn = theano.function(

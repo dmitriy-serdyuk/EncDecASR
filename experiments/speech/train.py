@@ -46,13 +46,13 @@ class RandomSamplePrinter(object):
                     break
 
                 x, y = xs[:, seq_idx], ys[:, seq_idx]
-                x_words = cut_eol(map(lambda w_idx : self.model.word_indxs_src[w_idx], x))
-                y_words = cut_eol(map(lambda w_idx : self.model.word_indxs[w_idx], y))
+                x_words = cut_eol(map(lambda w_idx: self.model.word_indxs[w_idx], x))
+                y_words = cut_eol(map(lambda w_idx: self.model.word_indxs_target[w_idx], y))
                 if len(x_words) == 0:
                     continue
 
                 print "Input: {}".format(" ".join(x_words))
-                print "Target: {}".format(" ".join(y_words))
+                print "Target: {}".format("".join(y_words))
                 self.model.get_samples(self.state['seqlen'] + 1, self.state['n_samples'], x[:len(x_words)])
                 sample_idx += 1
 
@@ -88,24 +88,24 @@ def main():
     rng = numpy.random.RandomState(state['seed'])
     enc_dec = RNNEncoderDecoder(state, rng, args.skip_init)
     enc_dec.build()
-    lm_model = enc_dec.create_lm_model()
+    pronunciation_model = enc_dec.create_pronunciation_model()
 
     logger.debug("Load data")
     train_data = get_cmu_batch_iterator(state=state, rng=rng, logger=logger, subset='train')
     logger.debug("Compile trainer")
     if state['algo'] == 'SGD_adadelta':
-        algo = SGD_adadelta(lm_model, state, train_data)
+        algo = SGD_adadelta(pronunciation_model, state, train_data)
     elif state['algo'] == 'SGD':
-        algo = SGD(lm_model, state, train_data)
+        algo = SGD(pronunciation_model, state, train_data)
     elif state['algo'] == 'SGD_momentum':
-        algo = SGD_momentum(lm_model, state, train_data)
+        algo = SGD_momentum(pronunciation_model, state, train_data)
     else:
         raise Exception("Illegal training algorithm")
 
     logger.debug("Run training")
-    main = MainLoop(train_data, None, None, lm_model, algo, state, None,
+    main = MainLoop(train_data, None, None, pronunciation_model, algo, state, None,
             reset=state['reset'],
-            hooks=None #[RandomSamplePrinter(state, lm_model, train_data)]
+            hooks=[RandomSamplePrinter(state, pronunciation_model, train_data)]
                 #if state['hookFreq'] >= 0
                 #else None
                 )

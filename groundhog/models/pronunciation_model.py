@@ -7,7 +7,8 @@ TODO: write more documentation
 __docformat__ = 'restructedtext en'
 __authors__ = ("Razvan Pascanu "
                "KyungHyun Cho "
-               "Caglar Gulcehre ")
+               "Caglar Gulcehre "
+               "Dmitry Serdyuk")
 __contact__ = "Dmitry Serdyuk <dmitriy.serdyuk@gmail>"
 
 
@@ -99,7 +100,6 @@ class PronunciationModel(Model):
         :param rng: numpy random generator
 
         """
-        # TODO: Finish converting
         super(PronunciationModel, self).__init__(output_layer=cost_layer,
                                        sample_fn=sample_fn,
                                        indx_word=indx_word,
@@ -109,7 +109,7 @@ class PronunciationModel(Model):
             self.exclude_params_for_norm = []
         else:
             self.exclude_params_for_norm = exclude_params_for_norm
-        self.need_inputs_for_generating_noise=need_inputs_for_generating_noise
+        self.need_inputs_for_generating_noise = need_inputs_for_generating_noise
         self.cost_layer = cost_layer
         self.validate_step = valid_fn
         self.clean_noise_validation = clean_noise_validation
@@ -118,7 +118,7 @@ class PronunciationModel(Model):
         self.weight_noise_amount = weight_noise_amount
         self.character_level = character_level
 
-        self.valid_costs = ['cost','ppl']
+        self.valid_costs = ['cost', 'ppl']
         # Assume a single cost
         # We need to merge these lists
         state_below = self.cost_layer.state_below
@@ -169,7 +169,6 @@ class PronunciationModel(Model):
             self.add_noise = None
             self.del_noise = None
 
-
     def validate(self, data_iterator, train=False):
         cost = 0
         n_batches = 0
@@ -194,7 +193,7 @@ class PronunciationModel(Model):
                 cost += _rvals
             else:
                 # not dict
-                if vals[0].ndim ==3:
+                if vals[0].ndim == 3:
                     n_steps += vals[0].shape[0]*vals[1].shape[1]
                 else:
                     n_steps += vals[0].shape[0]
@@ -214,33 +213,21 @@ class PronunciationModel(Model):
         ppl = 10**(numpy.log(2)*cost/numpy.log(10))
         return [('cost',entropy), ('ppl',ppl)]
 
-
-    def load_dict(self, opts):
+    def load_dict(self, state):
         """
         Loading the dictionary that goes from indices to actual words
         """
+        with open(self.indx_word, 'rt') as finp:
+            self.data_dict = pkl.load(finp)
 
-        if self.indx_word and '.pkl' in self.indx_word[-4:]:
-            data_dict = pkl.load(open(self.indx_word, "r"))
-            self.word_indxs = data_dict
-            self.word_indxs[opts['null_sym_target']] = '<eol>'
-            self.word_indxs[opts['unk_sym_target']] = opts['oov']
-        elif self.indx_word and '.np' in self.indx_word[-4:]:
-            self.word_indxs = numpy.load(self.indx_word)['unique_words']
+        self.word_indxs_target = dict(map(lambda (x, y): (y, x), self.data_dict['alphabet'].items()))
+        self.word_indxs = dict(map(lambda (x, y): (y, x), self.data_dict['phone_vocabulary'].items()))
 
-        if self.indx_word_src and '.pkl' in self.indx_word_src[-4:]:
-            data_dict = pkl.load(open(self.indx_word_src, "r"))
-            self.word_indxs_src = data_dict
-            self.word_indxs_src[opts['null_sym_source']] = '<eol>'
-            self.word_indxs_src[opts['unk_sym_source']] = opts['oov']
-        elif self.indx_word_src and '.np' in self.indx_word_src[-4:]:
-            self.word_indxs_src = numpy.load(self.indx_word_src)['unique_words']
-
-
+        del self.data_dict
 
     def get_samples(self, length = 30, temp=1, *inps):
-        if not hasattr(self, 'word_indxs'):
-            self.load_dict()
+        if not hasattr(self, 'symbol_indxs'):
+            self.load_dict({})
         self._get_samples(self, length, temp, *inps)
 
     def perturb(self, *args, **kwargs):

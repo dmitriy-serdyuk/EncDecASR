@@ -436,7 +436,7 @@ def get_cmu_batch_iterator(subset, state, rng, logger, single_utterances=False, 
 
     def get_iter_fun(rng):
         sequence_iterator = CMUIterator(
-            filename='/data/lisatmp3/serdyuk/processing_scripts/tmp_data.pkl',
+            filename='/data/lisatmp3/serdyuk/cmudict/all_data.pkl',
             sources=sources
         )
         sequence_iterator = BatchIterator(sequence_iterator)
