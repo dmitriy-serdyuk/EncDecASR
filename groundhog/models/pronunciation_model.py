@@ -226,12 +226,30 @@ class PronunciationModel(Model):
             else:
                 n_steps += val.shape[0]
 
-            sample, probs = self.validate_step(sampling_x=vals['x'], n_samples=1, n_steps=10, T=1)
-            cost += wer(sample, vals['y']) / float(len(vals['y']))
-        print cost
+            #sample
+            probs = self.validate_step(**vals)
+
+            input = vals['x']
+
+            # Greedy search
+            seq = []
+            while True:
+                highest = 0
+                highest_symb = None
+                for symbol in self.word_indxs.iterkeys():
+                    probs = self.validate_step(x=input, y=numpy.array(seq + [symbol]))
+                    if probs[-1] > highest:
+                        highest = probs[-1]
+                        highest_symb = symbol
+                seq += [highest_symb]
+
+                if highest_symb == 40:
+                    break
+            cost += wer(seq, vals['y']) / float(len(vals['y']))
 
         #n_steps = numpy.log(2.) * n_steps
         cost = cost / float(n_steps)
+        print "Average WER", cost
 
         entropy = cost  # (numpy.log(2.))
         ppl = 10 ** (numpy.log(2) * cost / numpy.log(10))

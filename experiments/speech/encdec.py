@@ -1412,7 +1412,7 @@ class RNNEncoderDecoder(object):
         self.pronunciation_model = PronunciationModel(
             cost_layer=self.predictions,
             sample_fn=self.create_sampler(),
-            valid_fn=self.create_sampler(),
+            valid_fn=self.create_probs_computer(),
             weight_noise_amount=self.state['weight_noise_amount'],
             indx_word=self.state['indx_word'],
             indx_word_src=self.state['indx_word_src'],
@@ -1421,6 +1421,7 @@ class RNNEncoderDecoder(object):
         logger.debug("Model params:\n{}".format(
             pprint.pformat(sorted([p.name for p in self.pronunciation_model.params]))))
         return self.pronunciation_model
+
     def create_representation_computer(self):
         if not hasattr(self, "repr_fn"):
             self.repr_fn = theano.function(
