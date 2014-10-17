@@ -1412,6 +1412,7 @@ class RNNEncoderDecoder(object):
         self.pronunciation_model = PronunciationModel(
             cost_layer=self.predictions,
             sample_fn=self.create_sampler(),
+            valid_fn=self.create_sampler(),
             weight_noise_amount=self.state['weight_noise_amount'],
             indx_word=self.state['indx_word'],
             indx_word_src=self.state['indx_word_src'],
@@ -1448,7 +1449,7 @@ class RNNEncoderDecoder(object):
                 name="sample_fn")
         if not many_samples:
             def sampler(*args):
-                return map(lambda x : x.squeeze(), self.sample_fn(1, *args))
+                return map(lambda x: x.squeeze(), self.sample_fn(1, *args))
             return sampler
         return self.sample_fn
 
@@ -1461,6 +1462,7 @@ class RNNEncoderDecoder(object):
                     name="score_fn")
         if batch:
             return self.score_fn
+
         def scorer(x, y):
             x_mask = numpy.ones(x.shape[0], dtype="float32")
             y_mask = numpy.ones(y.shape[0], dtype="float32")
@@ -1505,6 +1507,7 @@ class RNNEncoderDecoder(object):
                 return probs
         return probs_computer
 
+
 def parse_input(state, word2idx, line, raise_unk=False, idx2word=None, unk_sym=-1, null_sym=-1):
     if unk_sym < 0:
         unk_sym = state['unk_sym_source']
@@ -1512,8 +1515,8 @@ def parse_input(state, word2idx, line, raise_unk=False, idx2word=None, unk_sym=-
         null_sym = state['null_sym_source']
     seqin = line.split()
     seqlen = len(seqin)
-    seq = numpy.zeros(seqlen+1, dtype='int64')
-    for idx,sx in enumerate(seqin):
+    seq = numpy.zeros(seqlen + 1, dtype='int64')
+    for idx, sx in enumerate(seqin):
         seq[idx] = word2idx.get(sx, unk_sym)
         if seq[idx] >= state['n_sym_source']:
             seq[idx] = unk_sym

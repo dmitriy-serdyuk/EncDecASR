@@ -92,6 +92,8 @@ def main():
 
     logger.debug("Load data")
     train_data = get_cmu_batch_iterator(state=state, rng=rng, logger=logger, subset='train')
+    logger.debug("Load validation data")
+    valid_data = get_cmu_batch_iterator(state=state, rng=rng, logger=logger, subset='valid')
     logger.debug("Compile trainer")
     if state['algo'] == 'SGD_adadelta':
         algo = SGD_adadelta(pronunciation_model, state, train_data)
@@ -103,12 +105,13 @@ def main():
         raise Exception("Illegal training algorithm")
 
     logger.debug("Run training")
-    main = MainLoop(train_data, None, None, pronunciation_model, algo, state, None,
-            reset=state['reset'],
-            hooks=[RandomSamplePrinter(state, pronunciation_model, train_data)]
-                #if state['hookFreq'] >= 0
-                #else None
-                )
+    main = MainLoop(train_data, valid_data, test_data=None, model=pronunciation_model, algo=algo,
+                    state=state, channel=None,
+                    reset=state['reset'],
+                    hooks=[RandomSamplePrinter(state, pronunciation_model, train_data)]
+                    if state['hookFreq'] >= 0
+                    else None
+    )
     if state['reload']:
         main.load()
     if state['loopIters'] > 0:

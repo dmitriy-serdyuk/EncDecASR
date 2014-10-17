@@ -11,7 +11,6 @@ __authors__ = ("Razvan Pascanu "
                "Dmitry Serdyuk")
 __contact__ = "Dmitry Serdyuk <dmitriy.serdyuk@gmail>"
 
-
 import numpy
 import itertools
 import logging
@@ -28,21 +27,58 @@ from groundhog.layers.basic import Model
 logger = logging.getLogger(__name__)
 
 
+def wer(r, h):
+    """
+        Calculation of WER with Levenshtein distance.
+        Works only for iterables up to 254 elements (uint8).
+        O(nm) time ans space complexity.
+
+        >>> wer("who is there".split(), "is there".split())
+        1
+        >>> wer("who is there".split(), "".split())
+        3
+        >>> wer("".split(), "who is there".split())
+        3
+    """
+    # initialisation
+    d = numpy.zeros((len(r) + 1) * (len(h) + 1), dtype=numpy.uint8)
+    d = d.reshape((len(r) + 1, len(h) + 1))
+    for i in range(len(r) + 1):
+        for j in range(len(h) + 1):
+            if i == 0:
+                d[0][j] = j
+            elif j == 0:
+                d[i][0] = i
+
+    # computation
+    for i in range(1, len(r) + 1):
+        for j in range(1, len(h) + 1):
+            if r[i - 1] == h[j - 1]:
+                d[i][j] = d[i - 1][j - 1]
+            else:
+                substitution = d[i - 1][j - 1] + 1
+                insertion = d[i][j - 1] + 1
+                deletion = d[i - 1][j] + 1
+                d[i][j] = min(substitution, insertion, deletion)
+
+    return d[len(r)][len(h)]
+
+
 class PronunciationModel(Model):
-    def  __init__(self,
-                  cost_layer = None,
-                  sample_fn = None,
-                  valid_fn = None,
-                  noise_fn = None,
-                  clean_before_noise_fn = False,
-                  clean_noise_validation=True,
-                  weight_noise_amount = 0,
-                  indx_word="/data/lisatmp3/serdyuk/cmudict/all_data.pkl",
-                  need_inputs_for_generating_noise=False,
-                  indx_word_src=None,
-                  character_level = False,
-                  exclude_params_for_norm=None,
-                  rng = None):
+    def __init__(self,
+                 cost_layer=None,
+                 sample_fn=None,
+                 valid_fn=None,
+                 noise_fn=None,
+                 clean_before_noise_fn=False,
+                 clean_noise_validation=True,
+                 weight_noise_amount=0,
+                 indx_word="/data/lisatmp3/serdyuk/cmudict/all_data.pkl",
+                 need_inputs_for_generating_noise=False,
+                 indx_word_src=None,
+                 character_level=False,
+                 exclude_params_for_norm=None,
+                 rng=None):
         """
         Constructs a model, that respects the interface required by the
         trainer class.
@@ -101,10 +137,10 @@ class PronunciationModel(Model):
 
         """
         super(PronunciationModel, self).__init__(output_layer=cost_layer,
-                                       sample_fn=sample_fn,
-                                       indx_word=indx_word,
-                                       indx_word_src=indx_word_src,
-                                       rng=rng)
+                                                 sample_fn=sample_fn,
+                                                 indx_word=indx_word,
+                                                 indx_word_src=indx_word_src,
+                                                 rng=rng)
         if exclude_params_for_norm is None:
             self.exclude_params_for_norm = []
         else:
@@ -131,8 +167,8 @@ class PronunciationModel(Model):
             scale = numpy.float32(1)
         scale *= numpy.float32(numpy.log(2))
 
-        grad_norm = TT.sqrt(sum(TT.sum(x**2)
-                                for x,p in zip(self.param_grads, self.params) if p not in
+        grad_norm = TT.sqrt(sum(TT.sum(x ** 2)
+                                for x, p in zip(self.param_grads, self.params) if p not in
                                 self.exclude_params_for_norm))
         new_properties = [
             ('grad_norm', grad_norm),
@@ -140,23 +176,23 @@ class PronunciationModel(Model):
             ('log2_p_expl', self.cost_layer.cost_per_sample.mean() / scale)]
         self.properties += new_properties
 
-        if len(self.noise_params) >0 and weight_noise_amount:
+        if len(self.noise_params) > 0 and weight_noise_amount:
             if self.need_inputs_for_generating_noise:
                 inps = self.inputs
             else:
                 inps = []
-            self.add_noise = theano.function(inps,[],
+            self.add_noise = theano.function(inps, [],
                                              name='add_noise',
-                                             updates = [(p,
-                                                         self.trng.normal(shp_fn(self.inputs),
-                                                                          avg =0,
-                                                                          std=weight_noise_amount,
-                                                                          dtype=p.dtype))
-                                                        for p, shp_fn in
-                                                        zip(self.noise_params,
-                                                            self.noise_params_shape_fn)],
+                                             updates=[(p,
+                                                       self.trng.normal(shp_fn(self.inputs),
+                                                                        avg=0,
+                                                                        std=weight_noise_amount,
+                                                                        dtype=p.dtype))
+                                                      for p, shp_fn in
+                                                      zip(self.noise_params,
+                                                          self.noise_params_shape_fn)],
                                              on_unused_input='ignore')
-            self.del_noise = theano.function(inps,[],
+            self.del_noise = theano.function(inps, [],
                                              name='del_noise',
                                              updates=[(p,
                                                        TT.zeros(shp_fn(self.inputs),
@@ -170,48 +206,36 @@ class PronunciationModel(Model):
             self.del_noise = None
 
     def validate(self, data_iterator, train=False):
-        cost = 0
+        cost = 0.0
         n_batches = 0
         n_steps = 0
         if self.del_noise and self.clean_noise_validation:
             if self.need_inputs_for_generating_noise:
-                self.del_noise(**vals)
+                #self.del_noise(**vals)
+                pass
             else:
                 self.del_noise()
 
         for vals in data_iterator:
+
             n_batches += 1
 
-            if isinstance(vals, dict):
-                val = vals.values()[0]
-                if val.ndim ==3:
-                    n_steps += val.shape[0]*val.shape[1]
-                else:
-                    n_steps += val.shape[0]
-
-                _rvals = self.validate_step( **vals)
-                cost += _rvals
+            val = vals['x']
+            if val.ndim == 3:
+                n_steps += val.shape[0] * val.shape[1]
             else:
-                # not dict
-                if vals[0].ndim == 3:
-                    n_steps += vals[0].shape[0]*vals[1].shape[1]
-                else:
-                    n_steps += vals[0].shape[0]
-                if self.del_noise and self.clean_noise_validation:
-                    if self.need_inputs_for_generating_noise:
-                        self.del_noise(*vals)
-                    else:
-                        self.del_noise()
-                inps = list(vals)
-                _rvals = self.validate_step(*inps)
-                _cost += _rvals
+                n_steps += val.shape[0]
 
-        n_steps = numpy.log(2.)*n_steps
-        cost = cost / n_steps
+            sample, probs = self.validate_step(sampling_x=vals['x'], n_samples=1, n_steps=10, T=1)
+            cost += wer(sample, vals['y']) / float(len(vals['y']))
+        print cost
 
-        entropy = cost# (numpy.log(2.))
-        ppl = 10**(numpy.log(2)*cost/numpy.log(10))
-        return [('cost',entropy), ('ppl',ppl)]
+        #n_steps = numpy.log(2.) * n_steps
+        cost = cost / float(n_steps)
+
+        entropy = cost  # (numpy.log(2.))
+        ppl = 10 ** (numpy.log(2) * cost / numpy.log(10))
+        return [('cost', entropy), ('ppl', ppl)]
 
     def load_dict(self, state):
         """
@@ -225,7 +249,7 @@ class PronunciationModel(Model):
 
         del self.data_dict
 
-    def get_samples(self, length = 30, temp=1, *inps):
+    def get_samples(self, length=30, temp=1, *inps):
         if not hasattr(self, 'word_indxs'):
             self.load_dict({})
         self._get_samples(self, length, temp, *inps)

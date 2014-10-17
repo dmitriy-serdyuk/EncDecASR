@@ -306,5 +306,7 @@ def prototype_speech_state():
     state['hookFreq'] = 100
     state['big_batch'] = 5000
     state['mini_batch'] = 500
+    state['null_sym_source'] = 72
+    state['null_sym_target'] = 40
 
     return state

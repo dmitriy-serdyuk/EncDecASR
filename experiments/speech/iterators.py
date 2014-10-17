@@ -379,26 +379,64 @@ class BatchIterator(AbstractWrappedIterator):
         return ans
 
 
+class OneExampleIterator(AbstractWrappedIterator):
+    def __init__(self, iterator, **kwargs):
+        super(OneExampleIterator, self).__init__(iterator=iterator, **kwargs)
+
+        self.next_offset = 0
+
+    def reset(self):
+        self.iterator.reset()
+
+    def start(self, start_offset=0):
+        self.iterator.start(start_offset)
+
+    def next(self, peek=False):
+        def extend_with_zeros(arrays):
+            max_length = max([len(arr) for arr in arrays])
+            new_arrays = [np.append(arr, np.zeros(max_length - len(arr), dtype=arr.dtype)) for arr in arrays]
+            masks = [np.append(np.ones(len(arr), dtype="float32"),
+                               np.zeros(max_length - len(arr), dtype="float32"), axis=0) for arr in arrays]
+            return new_arrays, masks
+
+        def merge_batch(batch):
+            keys = self.iterator.source_names
+            out_dict = {}
+            for key in keys:
+                arrays = [d[key].T for d in batch]
+                arrays, masks = extend_with_zeros(arrays)
+                out_dict[key] = np.array(arrays).T
+                out_dict[key + '_mask'] = np.array(masks).T
+            return out_dict
+
+        batch = [self.iterator.next(peek)]
+        ans = merge_batch(batch)
+        return ans
+
+
 class CMUIterator(AbstractDataIterator):
 
-    def __init__(self, filename, sources=('x', 'y')):
+    def __init__(self, filename, sources=('x', 'y'), subset='train'):
         """
             Read the kaldi data streams given by feats_rx and targets_rx
         """
         super(CMUIterator, self).__init__(source_names=sources)
+        self.subset = subset
 
         with open(filename, 'rt') as finp:
-            self.data_dict = cPickle.load(finp)
+            data_dict = cPickle.load(finp)
+            self.data_words = data_dict[subset + '_words']
+            self.data_phones = data_dict[subset + '_phones']
 
         self.position = 0
         self.next_offset = 0
-        self.size = len(self.data_dict['train_words'])
+        self.size = len(self.data_words)
 
     def next(self, peek=False):
         if self.position >= self.size:
             self.position = 0
-        utt_name, utt_feats = '', self.data_dict['train_phones'][self.position]
-        utt_targets = self.data_dict['train_words'][self.position]
+        utt_name, utt_feats = '', self.data_phones[self.position]
+        utt_targets = self.data_words[self.position]
         if not peek:
             self.position += 1
         return dict(x=utt_feats, y=utt_targets)
@@ -437,8 +475,12 @@ def get_cmu_batch_iterator(subset, state, rng, logger, single_utterances=False, 
     def get_iter_fun(rng):
         sequence_iterator = CMUIterator(
             filename='/data/lisatmp3/serdyuk/cmudict/all_data.pkl',
-            sources=sources
+            sources=sources,
+            subset=subset
         )
+        if subset == 'valid':
+            #sequence_iterator = OneExampleIterator(sequence_iterator)
+            return sequence_iterator
         sequence_iterator = BatchIterator(sequence_iterator, big_batch_size=state['big_batch'],
                                           mini_batch_size=state['mini_batch'])
         #trans_seq_iter = TransformingIterator(sequence_iterator, dict(y=tfun_targets, x=tfun_feats,
