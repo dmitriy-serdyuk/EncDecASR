@@ -159,7 +159,7 @@ class PronunciationModel(Model):
         self.weight_noise_amount = weight_noise_amount
         self.character_level = character_level
 
-        self.valid_costs = ['cost', 'ppl']
+        self.valid_costs = ['cost', 'ppl', 'wer']
         self.enc_dec = enc_dec
         # Assume a single cost
         # We need to merge these lists
@@ -246,12 +246,10 @@ class PronunciationModel(Model):
             cost += wer(out[0][0], vals['y']) / float(len(vals['y']))
 
         #n_steps = numpy.log(2.) * n_steps
-        cost = cost / float(n_steps)
+        cost = cost / float(n_batches)
         logger.debug("Average WER = %f" % cost)
 
-        entropy = cost  # (numpy.log(2.))
-        ppl = 10 ** (numpy.log(2) * cost / numpy.log(10))
-        return [('cost', entropy), ('ppl', ppl)]
+        return [('wer', cost)]
 
     def load_dict(self, state):
         """

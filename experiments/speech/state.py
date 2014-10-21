@@ -309,4 +309,6 @@ def prototype_speech_state():
     state['null_sym_source'] = 72
     state['null_sym_target'] = 40
 
+    state['cost_threshold'] = 4000.0
+
     return state
