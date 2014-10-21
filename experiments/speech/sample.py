@@ -48,7 +48,7 @@ class BeamSearch(object):
 
     def search(self, seq, n_samples, ignore_unk=False, minlen=1):
         c = self.comp_repr(seq)[0]
-        states = map(lambda x : x[None, :], self.comp_init_states(c))
+        states = map(lambda x: x[None, :], self.comp_init_states(c))
         dim = states[0].shape[1]
 
         num_levels = len(states)
@@ -278,7 +278,7 @@ def main():
             if args.verbose:
                 print "Translation:", trans[best]
             total_cost += costs[best]
-            if (i + 1)  % 100 == 0:
+            if (i + 1) % 100 == 0:
                 ftrans.flush()
                 logger.debug("Current speed is {} per sentence".
                         format((time.time() - start_time) / (i + 1)))
@@ -294,7 +294,7 @@ def main():
                 alpha = None
                 if not args.beam_search:
                     alpha = float(raw_input('Inverse Temperature? '))
-                seq,parsed_in = parse_input(state, indx_word, seqin, idx2word=idict_src)
+                seq, parsed_in = parse_input(state, indx_word, seqin, idx2word=idict_src)
                 print "Parsed Input:", parsed_in
             except Exception:
                 print "Exception while parsing your input:"

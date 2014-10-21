@@ -415,10 +415,24 @@ class OneExampleIterator(AbstractWrappedIterator):
 
 
 class CMUIterator(AbstractDataIterator):
-
+    '''
+    Iterates over CMU Pronunciation dictionary.
+    An input file should be a pickle file with
+    dictionary contains fields:
+        train_words: a list of numpy arrays with indexes of words
+        valid_words: the same as train_words
+        test_words: the same as train_words
+        train_phones: a list fo numpy arrays with indexes of phonemes
+        valid_phones: the same as train_phones
+        test_phones: the same as train_phones
+        phone_vocab_size: int, size of phoneme vocabulary
+        phone_vocabulary: dict, phone:index
+        alphabet_size: int, size of alphabet
+        alphabet: dict, character:index
+    '''
     def __init__(self, filename, sources=('x', 'y'), subset='train'):
         """
-            Read the kaldi data streams given by feats_rx and targets_rx
+            Read the CMU dictionary
         """
         super(CMUIterator, self).__init__(source_names=sources)
         self.subset = subset
@@ -434,7 +448,7 @@ class CMUIterator(AbstractDataIterator):
 
     def next(self, peek=False):
         if self.position >= self.size:
-            self.position = 0
+            raise StopIteration()
         utt_name, utt_feats = '', self.data_phones[self.position]
         utt_targets = self.data_words[self.position]
         if not peek:
@@ -446,6 +460,23 @@ class CMUIterator(AbstractDataIterator):
 
     def reset(self):
         self.position = 0
+
+
+class InfiniteIterator(AbstractWrappedIterator):
+    def __init__(self, iterator):
+        super(InfiniteIterator, self).__init__(iterator=iterator)
+
+    def next(self, peek=False):
+        try:
+            return self.iterator.next(peek)
+        except StopIteration:
+            self.iterator.position = 0
+
+    def start(self, start_offset=0):
+        self.iterator.start(start_offset)
+
+    def reset(self):
+        self.iterator.reset()
 
 
 def get_cmu_batch_iterator(subset, state, rng, logger, single_utterances=False, shuffle_override=None,
@@ -481,6 +512,7 @@ def get_cmu_batch_iterator(subset, state, rng, logger, single_utterances=False, 
         if subset == 'valid':
             #sequence_iterator = OneExampleIterator(sequence_iterator)
             return sequence_iterator
+        sequence_iterator = InfiniteIterator(sequence_iterator)
         sequence_iterator = BatchIterator(sequence_iterator, big_batch_size=state['big_batch'],
                                           mini_batch_size=state['mini_batch'])
         #trans_seq_iter = TransformingIterator(sequence_iterator, dict(y=tfun_targets, x=tfun_feats,

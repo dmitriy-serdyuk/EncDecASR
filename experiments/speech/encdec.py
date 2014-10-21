@@ -1410,6 +1410,7 @@ class RNNEncoderDecoder(object):
         if hasattr(self, 'pronunciation_model'):
             return self.pronunciation_model
         self.pronunciation_model = PronunciationModel(
+            enc_dec=self,
             cost_layer=self.predictions,
             sample_fn=self.create_sampler(),
             valid_fn=self.create_probs_computer(),
