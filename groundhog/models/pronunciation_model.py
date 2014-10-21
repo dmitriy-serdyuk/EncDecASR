@@ -213,6 +213,7 @@ class PronunciationModel(Model):
 
     def validate(self, data_iterator, train=False):
         cost = 0.0
+        wer_res = 0.0
         n_batches = 0
         n_steps = 0
         if self.del_noise and self.clean_noise_validation:
@@ -243,15 +244,20 @@ class PronunciationModel(Model):
             input = vals['x']
             if i % 1000 == 0:
                 logger.debug("Validation: %d" % i)
-                logger.debug("Validation: WER = %f" % (cost / (float(i) + 1)))
-            out = beam_search.search(val, n_samples=1)
-            cost += wer(out[0][0], vals['y']) / float(len(vals['y']))
+                logger.debug("Validation: WER = %f" % (wer / (float(i) + 1)))
+            out, fin_costs = beam_search.search(val, n_samples=1)
+            wer_res += wer(out[0], vals['y']) / float(len(vals['y']))
+            cost += probs[0]
 
+        wer_res = wer_res / float(n_batches)
         #n_steps = numpy.log(2.) * n_steps
+        n_batches = numpy.log(2.) * n_batches
         cost = cost / float(n_batches)
-        logger.debug("Average WER = %f" % cost)
 
-        return [('wer', cost)]
+        entropy = cost * (numpy.log(2.))
+        ppl = 10 ** (numpy.log(2) * -cost / numpy.log(10))
+
+        return [('wer', wer_res), ('cost', entropy), ('ppl', ppl)]
 
     def load_dict(self, state):
         """

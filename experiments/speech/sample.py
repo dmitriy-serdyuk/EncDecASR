@@ -18,6 +18,7 @@ from experiments.speech import\
 from groundhog.utils import BeamSearch
 
 from experiments.nmt.numpy_compat import argpartition
+from groundhog.utils.beam_search import GreedySearch
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ def sample(pronunciation_model, seq, n_samples,
             sentences.append("".join(sen))
         for i in range(len(costs)):
             if verbose:
-                print "{}: {}".format(costs[i], sentences[i])
+                print "{}: {} ({})".format(costs[i], sentences[i], trans[i])
         return sentences, costs, trans
     elif sampler:
         sentences = []
