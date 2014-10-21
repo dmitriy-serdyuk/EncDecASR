@@ -345,6 +345,7 @@ class MainLoop(object):
                 self.step += 1
                 self.timings['step'] = self.step
                 self.timings['next_offset'] = self.train_data.next_offset
+
             except KeyboardInterrupt:
                 break
 

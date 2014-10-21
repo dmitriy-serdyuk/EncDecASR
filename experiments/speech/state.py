@@ -310,5 +310,6 @@ def prototype_speech_state():
     state['null_sym_target'] = 40
 
     state['cost_threshold'] = 4000.0
+    state['divide_lr'] = False
 
     return state
