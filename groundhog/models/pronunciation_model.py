@@ -225,6 +225,8 @@ class PronunciationModel(Model):
         beam_search = BeamSearch(self.enc_dec)
 
         beam_search.compile()
+
+        data_iterator.start()
         for i, vals in enumerate(data_iterator):
 
             n_batches += 1

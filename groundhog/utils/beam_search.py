@@ -48,10 +48,10 @@ class BeamSearch(object):
 
             # Adjust log probs according to search restrictions
             if ignore_unk:
-                log_probs[:,self.unk_id] = -numpy.inf
-            # TODO: report me in the paper!!!
+                log_probs[:, self.unk_id] = -numpy.inf
+
             if k < minlen:
-                log_probs[:,self.eos_id] = -numpy.inf
+                log_probs[:, self.eos_id] = -numpy.inf
 
             # Find the best options by calling argpartition of flatten array
             next_costs = numpy.array(costs)[:, None] - log_probs
