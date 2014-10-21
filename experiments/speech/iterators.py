@@ -470,7 +470,8 @@ class InfiniteIterator(AbstractWrappedIterator):
         try:
             return self.iterator.next(peek)
         except StopIteration:
-            self.iterator.position = 0
+            self.iterator.reset()
+            return self.iterator.next(peek)
 
     def start(self, start_offset=0):
         self.iterator.start(start_offset)
