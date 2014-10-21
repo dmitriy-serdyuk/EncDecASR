@@ -156,7 +156,6 @@ class MainLoop(object):
         self.batch_start_time = time.time()
 
     def validate(self):
-        return [("wer", 0)]
         rvals = self.model.validate(self.valid_data)
         msg = '**  %d     validation:' % self.valid_id
         self.valid_id += 1
