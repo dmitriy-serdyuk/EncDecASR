@@ -1482,7 +1482,8 @@ class RNNEncoderDecoder(object):
     def create_next_probs_computer(self):
         if not hasattr(self, 'next_probs_fn'):
             self.next_probs_fn = theano.function(
-                    inputs=[self.c, self.step_num, self.gen_y] + self.current_states,
+                    inputs=[self.c, self.step_num,
+                            self.gen_y] + self.current_states,
                     outputs=[self.decoder.build_next_probs_predictor(
                         self.c, self.step_num, self.gen_y, self.current_states)],
                     name="next_probs_fn")
