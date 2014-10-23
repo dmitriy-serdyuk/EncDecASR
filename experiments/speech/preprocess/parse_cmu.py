@@ -82,7 +82,7 @@ def construct_alphabet(dataset, oov_rate, level):
     return dict(zip(words, range(up_to))), [x[1]/all_freq for x in freqs], freqs
 
 
-def construct_phone_vocabulary(dataset, oov_rate, level):
+def construct_phone_dict(dataset, oov_rate, level):
     filename = dataset
     txt = read_phones(filename)
     # Order the words
@@ -108,7 +108,7 @@ def construct_phone_vocabulary(dataset, oov_rate, level):
     return dict(zip(words, range(up_to))), [x[1]/all_freq for x in freqs], freqs
 
 
-def grab_text(filename, vocab, alph, dtype):
+def grab_text(filename, phone_dict, alph, dtype):
     pairs = [x for x in read_all(filename)]
     numpy.random.seed(RND_SEED)
     pairs = numpy.random.permutation(pairs)
@@ -118,17 +118,17 @@ def grab_text(filename, vocab, alph, dtype):
         arr = numpy.append(numpy.array(map(alph.get, word), dtype=dtype), eol_ind)
         return arr
 
-    def construct_phones(vocab, phones):
-        eol_ind = vocab['<eol>']
-        arr = numpy.append(numpy.array(map(vocab.get, phones), dtype=dtype), eol_ind)
+    def construct_phones(phone_dict, phones):
+        eol_ind = phone_dict['<eol>']
+        arr = numpy.append(numpy.array(map(phone_dict.get, phones), dtype=dtype), eol_ind)
         return arr
 
     words = [construct_lettres(alph, word).T for word, _ in pairs]
-    phones = [construct_phones(vocab, phones).T for _, phones in pairs]
+    phones = [construct_phones(phone_dict, phones).T for _, phones in pairs]
     return words, phones, len(pairs)
 
 
-def grab_text_binary(filename, vocab, alph, dtype):
+def grab_text_binary(filename, phone_dict, alph, dtype):
     pairs = [x for x in read_all(filename)]
     numpy.random.seed(RND_SEED)
     numpy.random.permutation(pairs)
@@ -142,48 +142,48 @@ def grab_text_binary(filename, vocab, alph, dtype):
             arr[ind[i], i] = 1.0
         return arr
 
-    def construct_phones(vocab, phones):
-        vocab_size = len(vocab)
+    def construct_phones(phone_dict, phones):
+        vocab_size = len(phone_dict)
         seq_size = len(phones)
         arr = numpy.zeros((vocab_size, seq_size), dtype=dtype)
-        ind = map(vocab.get, phones)
+        ind = map(phone_dict.get, phones)
         for i in xrange(seq_size):
             arr[ind[i], i] = 1.0
         return arr
 
     words = [construct_lettres(alph, word).T for word, _ in pairs]
-    phones = [construct_phones(vocab, phones).T for _, phones in pairs]
+    phones = [construct_phones(phone_dict, phones).T for _, phones in pairs]
     return words, phones, len(pairs)
 
 
 def main(parser):
     o, _ = parser.parse_args()
     dataset = '/data/lisatmp3/serdyuk/cmudict/cmudict.0.7a.agg'
-    print 'Constructing the vocabulary ..'
+    print ' .. constructing the vocabulary'
     alph, freqs, freq_wd = construct_alphabet(dataset, o.oov_rate, o.level)
     alph['<eol>'] = len(alph)
 
-    phone_vocab, phone_freqs, phone_freq_wd = construct_phone_vocabulary(dataset, o.oov_rate, o.level)
+    phone_vocab, phone_freqs, phone_freq_wd = construct_phone_dict(dataset, o.oov_rate, o.level)
     phone_vocab['<eol>'] = len(phone_vocab)
 
     if o.oov == '-1':
         oov_default = -1
     else:
         oov_default = len(phone_vocab)
-    print 'Constructing train set'
+    print ' .. constructing train set'
     data_words, data_phones, size = grab_text(dataset, phone_vocab, alph, o.dtype)
     train_words = data_words[:int(TRAIN_SIZE * size)]
     train_phones = data_phones[:int(TRAIN_SIZE * size)]
 
-    print 'Constructing valid set'
+    print ' .. constructing valid set'
     valid_words = data_words[int(TRAIN_SIZE * size):int((TRAIN_SIZE + VALID_SIZE) * size)]
     valid_phones = data_phones[int(TRAIN_SIZE * size):int((TRAIN_SIZE + VALID_SIZE) * size)]
     
-    print 'Constructing test set'
+    print ' .. constructing test set'
     test_words = data_words[int((TRAIN_SIZE + VALID_SIZE) * size):]
     test_phones = data_phones[int((TRAIN_SIZE + VALID_SIZE) * size):]
 
-    print 'Saving data'
+    print ' .. saving data'
     
     data = pickle.dumps(dict(
         train_words=train_words,
@@ -192,10 +192,8 @@ def main(parser):
         train_phones=train_phones,
         valid_phones=valid_phones,
         test_phones=test_phones,
-        #oov=oov_default,
-        #freqs = numpy.array(freqs),
-        phone_vocab_size=len(phone_vocab),
-        phone_vocabulary=phone_vocab,
+        phone_dict_size=len(phone_vocab),
+        phone_dict=phone_vocab,
         alphabet_size=len(alph),
         alphabet=alph
         ))
@@ -229,8 +227,8 @@ contain the following fields:
     'valid_phones' : a list of arrays where each element (sequence of phones) is 
              represented by an array of indexes from 0 to phone vocabulary size. 
              This is the validation set.
-    'phone_vocab_size' : The size of the phone vocabulary.
-    'phone_vocabulary' : The phone vocabulary.
+    'phone_dict_size' : The size of the phone dictionary.
+    'phone_dict' : The phone dictionary.
     'alphabet_size' : The size of the alphabet.
     'alphabet' : The alphabet.
     """

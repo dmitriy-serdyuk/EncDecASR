@@ -5,6 +5,7 @@ __author__ = 'serdyuk'
 import cPickle as pickle
 import sys, os
 import optparse
+import numpy as np
 
 
 def construct_alphabet(dataset):
@@ -17,7 +18,9 @@ def construct_alphabet(dataset):
             if not char in alph:
                 alph[char] = k
                 k += 1
+    alph['<eol>'] = k
     return alph
+
 
 def grab_text(dataset, phonem_dict, alph):
     words = []
@@ -33,13 +36,13 @@ def grab_text(dataset, phonem_dict, alph):
                 for line in fin:
                     word = line.split()[2].strip()
                     sent += [word]
-            words += [map(alph.get, ' '.join(sent))]
+            words += [np.array(map(alph.get, ' '.join(sent)) + [alph['<eol>']], dtype='int64')]
             with open(os.path.join(dir, filename + '.PHN')) as fin:
                 ph_arr = []
                 for line in fin:
                     phone = line.split()[2].strip()
                     ph_arr += [phone]
-            phones += [map(phonem_dict.get, ph_arr)]
+            phones += [np.array(map(phonem_dict.get, ph_arr) + [phonem_dict['<eol>']], dtype='int64')]
 
     return words, phones
 
@@ -47,21 +50,22 @@ def grab_text(dataset, phonem_dict, alph):
 def main(parser):
     o, _ = parser.parse_args()
     dataset = '/data/lisa/data/timit/'
-    print 'Constructing the alphabet ..'
+    print ' .. constructing the alphabet'
     alph = construct_alphabet(dataset)
 
-    print 'Extracting phones ..'
+    print ' .. extracting phones'
     with open(dataset + 'readable/phonemes.pkl', 'rb') as fin:
         phonemes = pickle.load(fin)
     phone_dict = {phone: ind for ind, phone in enumerate(phonemes)}
+    phone_dict['<eol>'] = len(phone_dict)
 
-    print 'Constructing train set ..'
+    print ' .. constructing train set'
     train_words, train_phones = grab_text(dataset + 'raw/TIMIT/TRAIN/', phone_dict, alph)
 
-    print 'Constructing test set ..'
+    print ' .. constructing test set'
     test_words, test_phones = grab_text(dataset + 'raw/TIMIT/TEST/', phone_dict, alph)
 
-    print 'Saving data ..'
+    print ' .. saving data'
 
     data = pickle.dumps(dict(
         train_words=train_words,
@@ -103,8 +107,8 @@ contain the following fields:
     'valid_phones' : a list of arrays where each element (sequence of phones) is
              represented by an array of indexes from 0 to phone vocabulary size.
              This is the validation set.
-    'phone_vocab_size' : The size of the phone vocabulary.
-    'phone_vocabulary' : The phone vocabulary.
+    'phone_dict_size' : The size of the phone dictionary.
+    'phone_dict' : The phone dictionary.
     'alphabet_size' : The size of the alphabet.
     'alphabet' : The alphabet.
     """

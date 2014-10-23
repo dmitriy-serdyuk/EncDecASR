@@ -13,7 +13,7 @@ from groundhog.trainer.SGD_momentum import SGD as SGD_momentum
 from groundhog.mainLoop import MainLoop
 from encdec import RNNEncoderDecoder #, prototype_state, get_batch_iterator
 import experiments.speech
-from iterators import CMUIterator, get_cmu_batch_iterator
+from iterators import WordPhoneIterator, get_cmu_batch_iterator
 
 
 logger = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ class RandomSamplePrinter(object):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--state", help="State to use")
-    parser.add_argument("--proto",  default="prototype_speech_state",
+    parser.add_argument("--proto",  default="prototype_timit_state",
         help="Prototype state to use for state")
     parser.add_argument("--skip-init", action="store_true",
         help="Skip parameter initilization")
@@ -93,7 +93,11 @@ def main():
     logger.debug("Load data")
     train_data = get_cmu_batch_iterator(state=state, rng=rng, logger=logger, subset='train')
     logger.debug("Load validation data")
-    valid_data = get_cmu_batch_iterator(state=state, rng=rng, logger=logger, subset='valid')
+    if args.proto == 'prototype_timit_state':
+        # no valid data for timit
+        valid_data = get_cmu_batch_iterator(state=state, rng=rng, logger=logger, subset='test')
+    else:
+        valid_data = get_cmu_batch_iterator(state=state, rng=rng, logger=logger, subset='valid')
     logger.debug("Compile trainer")
     if state['algo'] == 'SGD_adadelta':
         algo = SGD_adadelta(pronunciation_model, state, train_data)

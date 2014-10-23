@@ -301,15 +301,35 @@ def prototype_speech_state():
     state['n_sym_source'] = 73
     state['n_sym_target'] = 41
     state['prefix'] = 'results/'
-    state['indx_word'] = "/data/lisatmp3/serdyuk/cmudict/all_data.pkl"
-    state['indx_word_src'] = "/data/lisatmp3/serdyuk/cmudict/all_data.pkl"
     state['hookFreq'] = 100
     state['big_batch'] = 5000
     state['mini_batch'] = 500
-    state['null_sym_source'] = 72
-    state['null_sym_target'] = 40
 
     state['cost_threshold'] = 4000.0
     state['divide_lr'] = False
+
+    return state
+
+
+def prototype_cmu_state():
+    state = prototype_speech_state()
+
+    state['null_sym_source'] = 72
+    state['null_sym_target'] = 40
+    state['dataset'] = '/data/lisatmp3/serdyuk/cmudict/all_data.pkl'
+    state['indx_word'] = "/data/lisatmp3/serdyuk/cmudict/all_data.pkl"
+    state['indx_word_src'] = "/data/lisatmp3/serdyuk/cmudict/all_data.pkl"
+
+    return state
+
+
+def prototype_timit_state():
+    state = prototype_speech_state()
+
+    state['null_sym_source'] = 62
+    state['null_sym_target'] = 29
+    state['dataset'] = '/data/lisatmp3/serdyuk/timit/word_phone.pkl'
+    state['indx_word'] = '/data/lisatmp3/serdyuk/timit/word_phone.pkl'
+    state['indx_word_src'] = '/data/lisatmp3/serdyuk/timit/word_phone.pkl'
 
     return state

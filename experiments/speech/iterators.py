@@ -414,11 +414,11 @@ class OneExampleIterator(AbstractWrappedIterator):
         return ans
 
 
-class CMUIterator(AbstractDataIterator):
+class WordPhoneIterator(AbstractDataIterator):
     '''
-    Iterates over CMU Pronunciation dictionary.
+    Iterates over word/phone dataset like CMU Pronunciation dictionary.
     An input file should be a pickle file with
-    dictionary contains fields:
+    dictionary which contains fields:
         train_words: a list of numpy arrays with indexes of words
         valid_words: the same as train_words
         test_words: the same as train_words
@@ -434,7 +434,7 @@ class CMUIterator(AbstractDataIterator):
         """
             Read the CMU dictionary
         """
-        super(CMUIterator, self).__init__(source_names=sources)
+        super(WordPhoneIterator, self).__init__(source_names=sources)
         self.subset = subset
 
         with open(filename, 'rt') as finp:
@@ -505,8 +505,8 @@ def get_cmu_batch_iterator(subset, state, rng, logger, single_utterances=False, 
         return np.append(np.ones(1, dtype=feats.dtype), feats, axis=0)
 
     def get_iter_fun(rng):
-        sequence_iterator = CMUIterator(
-            filename='/data/lisatmp3/serdyuk/cmudict/all_data.pkl',
+        sequence_iterator = WordPhoneIterator(
+            filename=state['dataset'],
             sources=sources,
             subset=subset
         )

@@ -267,7 +267,7 @@ class PronunciationModel(Model):
             self.data_dict = pkl.load(finp)
 
         self.word_indxs = dict(map(lambda (x, y): (y, x), self.data_dict['alphabet'].items()))
-        self.word_indxs_src = dict(map(lambda (x, y): (y, x), self.data_dict['phone_vocabulary'].items()))
+        self.word_indxs_src = dict(map(lambda (x, y): (y, x), self.data_dict['phone_dict'].items()))
 
         del self.data_dict
 
