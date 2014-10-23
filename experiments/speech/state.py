@@ -326,10 +326,10 @@ def prototype_cmu_state():
 def prototype_timit_state():
     state = prototype_speech_state()
 
-    state['null_sym_source'] = 62
-    state['null_sym_target'] = 29
-    state['n_sym_source'] = 63
-    state['n_sym_target'] = 30
+    state['null_sym_source'] = 61
+    state['null_sym_target'] = 28
+    state['n_sym_source'] = 62
+    state['n_sym_target'] = 29
     state['dataset'] = '/data/lisatmp3/serdyuk/timit/word_phone.pkl'
     state['indx_word'] = '/data/lisatmp3/serdyuk/timit/word_phone.pkl'
     state['indx_word_src'] = '/data/lisatmp3/serdyuk/timit/word_phone.pkl'
