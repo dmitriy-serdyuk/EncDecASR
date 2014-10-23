@@ -656,6 +656,7 @@ class EncoderDecoderBase(object):
                     name='{}_transition_{}'.format(self.prefix, level),
                     **add_args))
 
+
 class Encoder(EncoderDecoderBase):
 
     def __init__(self, state, rng, prefix='enc', skip_init=False):
@@ -799,6 +800,7 @@ class Encoder(EncoderDecoderBase):
         # I do not know a good starting value for sum
         c = self.repr_calculator(sum(contributions[1:], contributions[0]))
         return c
+
 
 class Decoder(EncoderDecoderBase):
 
@@ -1471,6 +1473,11 @@ class RNNEncoderDecoder(object):
             return self.score_fn(x[:, None], y[:, None],
                     x_mask[:, None], y_mask[:, None])
         return scorer
+
+    def create_repr_readout(self):
+        repr_readout = theano.function(inputs=self.inputs,
+                                       outputs=[self.repr_readout])
+        return repr_readout
 
     def create_next_probs_computer(self):
         if not hasattr(self, 'next_probs_fn'):

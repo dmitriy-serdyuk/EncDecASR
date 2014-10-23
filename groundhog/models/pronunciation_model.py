@@ -244,7 +244,7 @@ class PronunciationModel(Model):
             input = vals['x']
             if i % 1000 == 0:
                 logger.debug("Validation: %d" % i)
-                logger.debug("Validation: WER = %f" % (wer / (float(i) + 1)))
+                logger.debug("Validation: WER = %f" % (wer_res / (float(i) + 1)))
             out, fin_costs = beam_search.search(val, n_samples=1)
             wer_res += wer(out[0], vals['y']) / float(len(vals['y']))
             cost += probs[0]

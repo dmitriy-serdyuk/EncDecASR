@@ -24,7 +24,7 @@ class Unbuffered:
 
 import sys
 import traceback
-sys.stdout = Unbuffered(sys.stdout)
+#sys.stdout = Unbuffered(sys.stdout)
 
 # Generic imports
 import numpy
