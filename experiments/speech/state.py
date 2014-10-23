@@ -296,7 +296,7 @@ def prototype_phrase_lstm_state():
 
 
 def prototype_speech_state():
-    state = prototype_state()
+    state = prototype_search_state()
 
     state['n_sym_source'] = 73
     state['n_sym_target'] = 41
