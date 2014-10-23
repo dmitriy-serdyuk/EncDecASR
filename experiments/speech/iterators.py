@@ -510,8 +510,7 @@ def get_cmu_batch_iterator(subset, state, rng, logger, single_utterances=False, 
             sources=sources,
             subset=subset
         )
-        if subset == 'valid':
-            #sequence_iterator = OneExampleIterator(sequence_iterator)
+        if subset != 'train':
             return sequence_iterator
         sequence_iterator = InfiniteIterator(sequence_iterator)
         sequence_iterator = BatchIterator(sequence_iterator, big_batch_size=state['big_batch'],
