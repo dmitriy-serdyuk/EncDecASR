@@ -312,6 +312,7 @@ def prototype_speech_state():
 def prototype_cmu_state():
     state = prototype_speech_state()
 
+    state['prefix'] = 'results_cmu/'
     state['null_sym_source'] = 72
     state['null_sym_target'] = 40
     state['n_sym_source'] = 73
@@ -326,6 +327,7 @@ def prototype_cmu_state():
 def prototype_timit_state():
     state = prototype_speech_state()
 
+    state['prefix'] = 'results_timit/'
     state['null_sym_source'] = 61
     state['null_sym_target'] = 28
     state['n_sym_source'] = 62

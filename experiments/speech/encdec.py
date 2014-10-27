@@ -459,14 +459,14 @@ class RecurrentLayerWithSearch(Layer):
             else:
                 init_state = TT.alloc(floatX(0), self.n_hids)
 
-        p_from_c =  utils.dot(c, self.A_cp).reshape(
+        p_from_c = utils.dot(c, self.A_cp).reshape(
                 (c.shape[0], c.shape[1], self.n_hids))
         
         if mask:
             sequences = [state_below, mask, updater_below, reseter_below]
             non_sequences = [c, c_mask, p_from_c] 
             #              seqs    | out |  non_seqs
-            fn = lambda x, m, g, r,   h,   c1, cm, pc : self.step_fprop(x, h, mask=m,
+            fn = lambda x, m, g, r,   h,   c1, cm, pc: self.step_fprop(x, h, mask=m,
                     gater_below=g, reseter_below=r,
                     c=c1, p_from_c=pc, c_mask=cm,
                     use_noise=use_noise, no_noise_bias=no_noise_bias,
@@ -475,7 +475,7 @@ class RecurrentLayerWithSearch(Layer):
             sequences = [state_below, updater_below, reseter_below]
             non_sequences = [c, p_from_c]
             #            seqs   | out | non_seqs
-            fn = lambda x, g, r,   h,    c1, pc : self.step_fprop(x, h,
+            fn = lambda x, g, r,   h,    c1, pc: self.step_fprop(x, h,
                     gater_below=g, reseter_below=r,
                     c=c1, p_from_c=pc,
                     use_noise=use_noise, no_noise_bias=no_noise_bias,
@@ -600,7 +600,7 @@ class EncoderDecoderBase(object):
                     name='{}_update_embdr_{}'.format(self.prefix, level),
                     **embedder_kwargs)
             if prefix_lookup(self.state, self.prefix, 'rec_reseting'):
-                self.reset_embedders[level] =  MultiLayer(
+                self.reset_embedders[level] = MultiLayer(
                     self.rng,
                     learn_bias=False,
                     name='{}_reset_embdr_{}'.format(self.prefix, level),
