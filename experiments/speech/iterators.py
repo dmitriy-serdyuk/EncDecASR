@@ -415,7 +415,7 @@ class OneExampleIterator(AbstractWrappedIterator):
 
 
 class WordPhoneIterator(AbstractDataIterator):
-    '''
+    """
     Iterates over word/phone dataset like CMU Pronunciation dictionary.
     An input file should be a pickle file with
     dictionary which contains fields:
@@ -429,7 +429,7 @@ class WordPhoneIterator(AbstractDataIterator):
         phone_vocabulary: dict, phone:index
         alphabet_size: int, size of alphabet
         alphabet: dict, character:index
-    '''
+    """
     def __init__(self, filename, sources=('x', 'y'), subset='train'):
         """
             Read the CMU dictionary
@@ -462,6 +462,76 @@ class WordPhoneIterator(AbstractDataIterator):
         self.position = 0
 
 
+def create_phone_map():
+    ph_from, ph_to = ['48', '39']
+    columns = {'60': 0, '48': 1, '39': 2}
+    cl_from = columns[ph_from]
+    cl_to = columns[ph_to]
+    phone_map = {}
+    with open("/data/lisatmp3/speech/jans/experiments/conf/phones.60-48-39.map", 'r') as map:
+        for line in map:
+            if not line.strip():
+                continue
+            line = line.strip().split('\t')
+            if len(line) < max(cl_from, cl_to) +1:
+                continue #phone dropped
+            k = line[cl_from]
+            v = line[cl_to]
+            if k in phone_map and v != phone_map[k]:
+                logger.warn('aliasing phone: %s', k)
+            phone_map[k] = v
+    return phone_map
+
+
+class TimitSampledIterator(AbstractDataIterator):
+    """
+    Iterates over data sampled from Jan's model on TIMIT
+    """
+
+    def __init__(self, filename, phone_dict=None, sampled_file=None, sources=('x', 'y'), subset='train', level='words'):
+        AbstractDataIterator.__init__(self, source_names=sources)
+        self.subset = subset
+
+        with open(filename, 'rt') as finp:
+            data_dict = cPickle.load(finp)
+        self.data_out = data_dict[subset + '_' + level]
+        if subset == 'test':
+            self.data_phones = data_dict[subset + '_phones']
+        self.data_utt_names = data_dict[subset + '_utt_names']
+        if subset != 'test':
+            with open(sampled_file, 'rt') as finp:
+                data_dict = cPickle.load(finp)
+            self.utt_to_text = dict(zip(self.data_utt_names, self.data_out))
+            self.data_phones = data_dict['samples']
+            self.data_phones = [np.array(seq[0]) for seq in self.data_phones]
+            self.data_utt_names = data_dict['utt_names']
+
+        self.position = 0
+        self.next_offset = 0
+        self.size = len(self.data_out)
+
+    def next(self, peek=False):
+        if self.position >= self.size:
+            raise StopIteration()
+        utt_phones = self.data_phones[self.position]
+        if self.subset == 'train':
+            utt_name = self.data_utt_names[self.position]
+            utt_targets = self.utt_to_text[utt_name]
+        else:
+            utt_targets = self.data_out[self.position]
+
+        if not peek:
+            self.position += 1
+
+        return dict(x=utt_phones, y=utt_targets)
+
+    def start(self, start_offset=0):
+        self.position = 0
+
+    def reset(self):
+        self.position = 0
+
+
 class InfiniteIterator(AbstractWrappedIterator):
     def __init__(self, iterator):
         super(InfiniteIterator, self).__init__(iterator=iterator)
@@ -481,7 +551,7 @@ class InfiniteIterator(AbstractWrappedIterator):
 
 
 def get_cmu_batch_iterator(subset, state, rng, logger, single_utterances=False, shuffle_override=None,
-                           add_utterance_names=False, peek=False):
+                           add_utterance_names=False, peek=False, sampled_from_timit=False):
     if 'randomize_iterator' in state and state['randomize_iterator']:
         logger.info("Randomly resetting the random seed for data iterator")
         rng = np.random.RandomState()
@@ -505,11 +575,20 @@ def get_cmu_batch_iterator(subset, state, rng, logger, single_utterances=False, 
         return np.append(np.ones(1, dtype=feats.dtype), feats, axis=0)
 
     def get_iter_fun(rng):
-        sequence_iterator = WordPhoneIterator(
-            filename=state['dataset'],
-            sources=sources,
-            subset=subset
-        )
+        if not sampled_from_timit:
+            sequence_iterator = WordPhoneIterator(
+                filename=state['dataset'],
+                sources=sources,
+                subset=subset
+            )
+        else:
+            sequence_iterator = TimitSampledIterator(
+                filename=state['dataset'],
+                sampled_file=state['sampled'],
+                phone_dict=create_phone_map(),
+                sources=sources,
+                subset=subset
+            )
         if subset != 'train':
             return sequence_iterator
         sequence_iterator = InfiniteIterator(sequence_iterator)

@@ -161,7 +161,7 @@ def prototype_state():
     state['minlr'] = 0
 
     # Batch size
-    state['bs']  = 64
+    state['bs'] = 64
     # We take this many minibatches, merge them,
     # sort the sentences according to their length and create
     # this many new batches with less padding.
@@ -335,5 +335,24 @@ def prototype_timit_state():
     state['dataset'] = '/data/lisatmp3/serdyuk/timit/word_phone.pkl'
     state['indx_word'] = '/data/lisatmp3/serdyuk/timit/word_phone.pkl'
     state['indx_word_src'] = '/data/lisatmp3/serdyuk/timit/word_phone.pkl'
+
+    return state
+
+
+def prototype_timit_sampled_state():
+    state = prototype_speech_state()
+
+    state['prefix'] = 'results_timit_sampled/'
+    state['out_level'] = 'words'
+    state['null_sym_source'] = 61
+    state['null_sym_target'] = 6102
+    state['n_sym_source'] = 62
+    state['n_sym_target'] = 6103
+    state['big_batch'] = 100
+    state['mini_batch'] = 10
+    state['dataset'] = '/data/lisatmp3/serdyuk/timit/word_phone_v2.pkl'
+    state['indx_word'] = '/data/lisatmp3/serdyuk/timit/word_phone_v2_phone_dict.pkl'
+    state['indx_word_src'] = '/data/lisatmp3/serdyuk/timit/word_phone_v2_dict.pkl'
+    state['sampled'] = '/data/lisatmp3/serdyuk/sample_step3.pkl'
 
     return state

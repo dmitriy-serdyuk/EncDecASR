@@ -22,29 +22,46 @@ def construct_alphabet(dataset):
     return alph
 
 
-def grab_text(dataset, phonem_dict, alph):
+def construct_dict(dataset):
+    with open(dataset + 'readable/words.pkl', 'rb') as fin:
+        words = pickle.load(fin)
+
+    return dict(zip(words + ['<eol>'], xrange(len(words) + 1)))
+
+
+def grab_text(dataset, phonem_dict, alph, dictionary):
     words = []
+    chars = []
     phones = []
+    utt_names = []
     for name in os.walk(dataset):
         if name[1] != []:
             continue
         dir = name[0]
-        filenames = set([os.path.splitext(filename)[0] for filename in os.listdir(dir)])
+        filenames = set([os.path.splitext(filename)[0] for filename
+                         in os.listdir(dir)])
         for filename in filenames:
             sent = []
             with open(os.path.join(dir, filename + '.WRD')) as fin:
                 for line in fin:
                     word = line.split()[2].strip()
                     sent += [word]
-            words += [np.array(map(alph.get, ' '.join(sent)) + [alph['<eol>']], dtype='int64')]
+            chars += [np.array(map(alph.get, ' '.join(sent)) + [alph['<eol>']],
+                               dtype='int64')]
+
+            words += [np.array(map(dictionary.get, sent) + [dictionary['<eol>']], dtype='int64')]
+
+            utt_names += [dir.split('/')[-1] + "_" + filename]
+
             with open(os.path.join(dir, filename + '.PHN')) as fin:
                 ph_arr = []
                 for line in fin:
                     phone = line.split()[2].strip()
                     ph_arr += [phone]
+
             phones += [np.array(map(phonem_dict.get, ph_arr) + [phonem_dict['<eol>']], dtype='int64')]
 
-    return words, phones
+    return words, chars, phones, utt_names
 
 
 def main(parser):
@@ -59,11 +76,13 @@ def main(parser):
     phone_dict = {phone: ind for ind, phone in enumerate(phonemes)}
     phone_dict['<eol>'] = len(phone_dict)
 
+    dictionary = construct_dict(dataset)
+
     print ' .. constructing train set'
-    train_words, train_phones = grab_text(dataset + 'raw/TIMIT/TRAIN/', phone_dict, alph)
+    train_words, train_chars, train_phones, train_utt_names = grab_text(dataset + 'raw/TIMIT/TRAIN/', phone_dict, alph, dictionary)
 
     print ' .. constructing test set'
-    test_words, test_phones = grab_text(dataset + 'raw/TIMIT/TEST/', phone_dict, alph)
+    test_words, test_chars, test_phones, test_utt_names = grab_text(dataset + 'raw/TIMIT/TEST/', phone_dict, alph, dictionary)
 
     print ' .. saving data'
 
@@ -72,13 +91,30 @@ def main(parser):
         test_words=test_words,
         train_phones=train_phones,
         test_phones=test_phones,
+        train_chars=train_chars,
+        test_chars=test_chars,
+        train_utt_names=train_utt_names,
+        test_utt_names=test_utt_names,
+
         phone_dict_size=len(phone_dict),
-        phone_dict=phone_dict,
         alphabet_size=len(alph),
-        alphabet=alph
+        dict_size=len(dictionary),
     ))
-    with open(o.dest, "wt") as fout:
+    with open(o.dest + '.pkl', "wt") as fout:
         fout.write(data)
+
+    print ' .. saving phone dictionary'
+    with open(o.dest + '_phone_dict.pkl', 'wt') as fout:
+        fout.write(pickle.dumps(phone_dict))
+
+    print ' .. saving alphabet'
+    with open(o.dest + '_alphabet.pkl', 'wt') as fout:
+        fout.write(pickle.dumps(alph))
+
+    print ' .. saving dictionary'
+    with open(o.dest + '_dict.pkl', 'wt') as fout:
+        fout.write(pickle.dumps(dictionary))
+
     print '... Done'
 
 
@@ -117,7 +153,7 @@ contain the following fields:
                       dest='dest',
                       help=('Where to save the processed dataset (i.e. '
                             'under what name and at what path)'),
-                      default='tmp_data.pkl')
+                      default='tmp_data')
     parser.add_option('--level',
                       dest='level',
                       help=('Processing level. Either `words` or `letter`. '

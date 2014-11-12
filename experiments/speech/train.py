@@ -11,7 +11,7 @@ from groundhog.trainer.SGD_adadelta import SGD as SGD_adadelta
 from groundhog.trainer.SGD import SGD as SGD
 from groundhog.trainer.SGD_momentum import SGD as SGD_momentum
 from groundhog.mainLoop import MainLoop
-from encdec import RNNEncoderDecoder #, prototype_state, get_batch_iterator
+from encdec import RNNEncoderDecoder, DoubleEncoderDecoder
 import experiments.speech
 from iterators import WordPhoneIterator, get_cmu_batch_iterator
 
@@ -86,16 +86,22 @@ def main():
     logger.debug("State:\n{}".format(pprint.pformat(state)))
 
     rng = numpy.random.RandomState(state['seed'])
+    #enc_dec = DoubleEncoderDecoder(state, rng, args.skip_init)
     enc_dec = RNNEncoderDecoder(state, rng, args.skip_init)
     enc_dec.build()
     pronunciation_model = enc_dec.create_pronunciation_model()
 
     logger.debug("Load data")
-    train_data = get_cmu_batch_iterator(state=state, rng=rng, logger=logger, subset='train')
+    if args.proto == 'prototype_timit_sampled_state':
+        train_data = get_cmu_batch_iterator(state=state, rng=rng, logger=logger, subset='train', sampled_from_timit=True)
+    else:
+        train_data = get_cmu_batch_iterator(state=state, rng=rng, logger=logger, subset='train')
     logger.debug("Load validation data")
     if args.proto == 'prototype_timit_state':
         # no valid data for timit
         valid_data = get_cmu_batch_iterator(state=state, rng=rng, logger=logger, subset='test')
+    elif args.proto == 'prototype_timit_sampled_state':
+        valid_data = get_cmu_batch_iterator(state=state, rng=rng, logger=logger, subset='test', sampled_from_timit=True)
     else:
         valid_data = get_cmu_batch_iterator(state=state, rng=rng, logger=logger, subset='valid')
     logger.debug("Compile trainer")

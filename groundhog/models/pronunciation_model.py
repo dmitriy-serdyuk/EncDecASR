@@ -259,13 +259,13 @@ class PronunciationModel(Model):
         """
         Loading the dictionary that goes from indices to actual words
         """
-        with open(self.indx_word, 'rt') as finp:
-            self.data_dict = pkl.load(finp)
+        with open(state['indx_word'], 'rt') as finp:
+            self.word_indxs = pkl.load(finp)
+        self.word_indxs = {x: y for y, x in self.word_indxs.items()}
 
-        self.word_indxs = dict(map(lambda (x, y): (y, x), self.data_dict['alphabet'].items()))
-        self.word_indxs_src = dict(map(lambda (x, y): (y, x), self.data_dict['phone_dict'].items()))
-
-        del self.data_dict
+        with open(state['indx_word_src'], 'rt') as finp:
+            self.word_indxs_src = pkl.load(finp)
+        self.word_indxs = {x: y for y, x in self.word_indxs_src.items()}
 
     def get_samples(self, length=30, temp=1, *inps):
         if not hasattr(self, 'word_indxs'):

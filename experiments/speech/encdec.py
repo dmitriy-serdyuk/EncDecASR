@@ -1262,6 +1262,210 @@ class Decoder(EncoderDecoderBase):
         return self.build_decoder(c, y, mode=Decoder.SAMPLING,
                 given_init_states=init_states, step_num=step_num)[2:]
 
+
+class EncoderDecoderLayer(object):
+    pass
+
+
+class DoubleEncoderDecoder(object):
+    def __init__(self, state, rng):
+        self.state = state
+        self.rng = rng
+
+    def build(self):
+        self.x = TT.lmatrix('x')
+        self.x_mask = TT.matrix('x_mask')
+        self.y = TT.lmatrix('y')
+        self.y_mask = TT.matrix('y_mask')
+        self.inputs = [self.x, self.y, self.x_mask, self.y_mask]
+
+        # Annotation for the log-likelihood computation
+        training_c_components = []
+
+        logger.debug("Create encoder")
+        self.encoder = Encoder(self.state, self.rng,
+                               prefix="enc",
+                               skip_init=self.skip_init)
+        self.encoder.create_layers()
+
+        logger.debug("Build encoding computation graph")
+        forward_training_c = self.encoder.build_encoder(
+            self.x, self.x_mask,
+            use_noise=True,
+            return_hidden_layers=True)
+
+        logger.debug("Create backward encoder")
+        self.backward_encoder = Encoder(self.state, self.rng,
+                                        prefix="back_enc",
+                                        skip_init=self.skip_init)
+        self.backward_encoder.create_layers()
+
+        logger.debug("Build backward encoding computation graph")
+        backward_training_c = self.backward_encoder.build_encoder(
+            self.x[::-1],
+            self.x_mask[::-1],
+            use_noise=True,
+            approx_embeddings=self.encoder.approx_embedder(self.x[::-1]),
+            return_hidden_layers=True)
+        # Reverse time for backward representations.
+        backward_training_c.out = backward_training_c.out[::-1]
+
+        if self.state['forward']:
+            training_c_components.append(forward_training_c)
+        if self.state['last_forward']:
+            training_c_components.append(
+                ReplicateLayer(self.x.shape[0])(forward_training_c[-1]))
+        if self.state['backward']:
+            training_c_components.append(backward_training_c)
+        if self.state['last_backward']:
+            training_c_components.append(ReplicateLayer(self.x.shape[0])
+                                         (backward_training_c[0]))
+        self.state['c_dim'] = len(training_c_components) * self.state['dim']
+
+        logger.debug("Create decoder")
+
+        self.hid = TT.lmatrix('hid')
+        self.hid_mask = TT.matrix('hid_mask')
+
+        self.decoder = Decoder(self.state, self.rng,
+                               skip_init=self.skip_init, compute_alignment=self.compute_alignment)
+        self.decoder.create_layers()
+        logger.debug("Build log-likelihood computation graph")
+        self.predictions, self.alignment = self.decoder.build_decoder(
+            c=Concatenate(axis=2)(*training_c_components), c_mask=self.x_mask,
+            y=self.hid, y_mask=self.hid_mask)
+
+        logger.debug("Create second encoder")
+        self.sec_encoder = Encoder(self.state, self.rng,
+                               prefix="enc2",
+                               skip_init=self.skip_init)
+        self.sec_encoder.create_layers()
+
+        logger.debug("Build encoding computation graph")
+        forward_training_c = self.sec_encoder.build_encoder(
+            self.hid, self.hid_mask,
+            use_noise=True,
+            return_hidden_layers=True)
+
+        logger.debug("Create backward encoder")
+        self.sec_backward_encoder = Encoder(self.state, self.rng,
+                                        prefix="back_enc2",
+                                        skip_init=self.skip_init)
+        self.sec_backward_encoder.create_layers()
+
+        logger.debug("Build backward encoding computation graph")
+        backward_training_c = self.sec_backward_encoder.build_encoder(
+            self.hid[::-1],
+            self.hid_mask[::-1],
+            use_noise=True,
+            approx_embeddings=self.sec_encoder.approx_embedder(self.hid[::-1]),
+            return_hidden_layers=True)
+        # Reverse time for backward representations.
+        backward_training_c.out = backward_training_c.out[::-1]
+
+        if self.state['forward']:
+            training_c_components.append(forward_training_c)
+        if self.state['last_forward']:
+            training_c_components.append(
+                ReplicateLayer(self.x.shape[0])(forward_training_c[-1]))
+        if self.state['backward']:
+            training_c_components.append(backward_training_c)
+        if self.state['last_backward']:
+            training_c_components.append(ReplicateLayer(self.x.shape[0])
+                                         (backward_training_c[0]))
+        self.state['c_dim'] = len(training_c_components) * self.state['dim']
+
+
+        logger.debug("Create second decoder")
+        self.sec_decoder = Decoder(self.state, self.rng,
+                               skip_init=self.skip_init, compute_alignment=self.compute_alignment)
+        self.sec_decoder.create_layers()
+        logger.debug("Build log-likelihood computation graph")
+        self.predictions, self.alignment = self.sec_decoder.build_decoder(
+            c=Concatenate(axis=2)(*training_c_components), c_mask=self.hid_mask,
+            y=self.y, y_mask=self.y_mask)
+
+        # Annotation for sampling
+        sampling_c_components = []
+
+        logger.debug("Build sampling computation graph")
+        self.sampling_x = TT.lvector("sampling_x")
+        self.n_samples = TT.lscalar("n_samples")
+        self.n_steps = TT.lscalar("n_steps")
+        self.T = TT.scalar("T")
+        self.forward_sampling_c = self.encoder.build_encoder(
+            self.sampling_x,
+            return_hidden_layers=True).out
+        self.backward_sampling_c = self.backward_encoder.build_encoder(
+            self.sampling_x[::-1],
+            approx_embeddings=self.encoder.approx_embedder(self.sampling_x[::-1]),
+            return_hidden_layers=True).out[::-1]
+        if self.state['forward']:
+            sampling_c_components.append(self.forward_sampling_c)
+        if self.state['last_forward']:
+            sampling_c_components.append(ReplicateLayer(self.sampling_x.shape[0])
+                                         (self.forward_sampling_c[-1]))
+        if self.state['backward']:
+            sampling_c_components.append(self.backward_sampling_c)
+        if self.state['last_backward']:
+            sampling_c_components.append(ReplicateLayer(self.sampling_x.shape[0])
+                                         (self.backward_sampling_c[0]))
+
+        self.sampling_c = Concatenate(axis=1)(*sampling_c_components).out
+        (self.sample, self.sample_log_prob), self.sampling_updates = \
+            self.decoder.build_sampler(self.n_samples, self.n_steps, self.T,
+                                       c=self.sampling_c)
+
+        logger.debug("Create auxiliary variables")
+        self.c = TT.matrix("c")
+        self.step_num = TT.lscalar("step_num")
+        self.current_states = [TT.matrix("cur_{}".format(i))
+                               for i in range(self.decoder.num_levels)]
+        self.gen_y = TT.lvector("gen_y")
+
+    def create_pronunciation_model(self):
+        if hasattr(self, 'pronunciation_model'):
+            return self.pronunciation_model
+        self.pronunciation_model = PronunciationModel(
+            enc_dec=self,
+            cost_layer=self.predictions,
+            sample_fn=self.create_sampler(),
+            valid_fn=self.create_probs_computer(),
+            weight_noise_amount=self.state['weight_noise_amount'],
+            indx_word=self.state['indx_word'],
+            indx_word_src=self.state['indx_word_src'],
+            rng=self.rng)
+        self.pronunciation_model.load_dict(self.state)
+        logger.debug("Model params:\n{}".format(
+            pprint.pformat(sorted([p.name for p in self.pronunciation_model.params]))))
+        return self.pronunciation_model
+
+    def create_sampler(self, many_samples=False):
+        if hasattr(self, 'sample_fn'):
+            return self.sample_fn
+        logger.debug("Compile sampler")
+        self.sample_fn = theano.function(
+            inputs=[self.n_samples, self.n_steps, self.T, self.sampling_x],
+            outputs=[self.sample, self.sample_log_prob],
+            updates=self.sampling_updates,
+            name="sample_fn")
+        if not many_samples:
+            def sampler(*args):
+                return map(lambda x: x.squeeze(), self.sample_fn(1, *args))
+            return sampler
+        return self.sample_fn
+
+    def create_next_probs_computer(self):
+        if not hasattr(self, 'next_probs_fn'):
+            self.next_probs_fn = theano.function(
+                inputs=[self.c, self.step_num,
+                        self.gen_y] + self.current_states,
+                outputs=[self.decoder.build_next_probs_predictor(
+                    self.c, self.step_num, self.gen_y, self.current_states)],
+                name="next_probs_fn")
+        return self.next_probs_fn
+
+
 class RNNEncoderDecoder(object):
     """This class encapsulates the translation model.
 
