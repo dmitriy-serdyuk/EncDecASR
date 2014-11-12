@@ -46,6 +46,8 @@ class RandomSamplePrinter(object):
                     break
 
                 x, y = xs[:, seq_idx], ys[:, seq_idx]
+                print x
+                print map(lambda w_idx: self.model.word_indxs_src[w_idx], x)
                 x_words = cut_eol(map(lambda w_idx: self.model.word_indxs_src[w_idx], x))
                 y_words = cut_eol(map(lambda w_idx: self.model.word_indxs[w_idx], y))
                 if len(x_words) == 0:

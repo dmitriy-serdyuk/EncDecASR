@@ -351,8 +351,8 @@ def prototype_timit_sampled_state():
     state['big_batch'] = 100
     state['mini_batch'] = 10
     state['dataset'] = '/data/lisatmp3/serdyuk/timit/word_phone_v2.pkl'
-    state['indx_word'] = '/data/lisatmp3/serdyuk/timit/word_phone_v2_phone_dict.pkl'
-    state['indx_word_src'] = '/data/lisatmp3/serdyuk/timit/word_phone_v2_dict.pkl'
+    state['indx_word_src'] = '/data/lisatmp3/serdyuk/timit/word_phone_v2_phone_dict.pkl'
+    state['indx_word'] = '/data/lisatmp3/serdyuk/timit/word_phone_v2_dict.pkl'
     state['sampled'] = '/data/lisatmp3/serdyuk/sample_step3.pkl'
 
     return state

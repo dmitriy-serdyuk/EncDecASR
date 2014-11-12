@@ -265,7 +265,7 @@ class PronunciationModel(Model):
 
         with open(state['indx_word_src'], 'rt') as finp:
             self.word_indxs_src = pkl.load(finp)
-        self.word_indxs = {x: y for y, x in self.word_indxs_src.items()}
+        self.word_indxs_src = {x: y for y, x in self.word_indxs_src.items()}
 
     def get_samples(self, length=30, temp=1, *inps):
         if not hasattr(self, 'word_indxs'):

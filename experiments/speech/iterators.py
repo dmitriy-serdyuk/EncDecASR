@@ -488,9 +488,10 @@ class TimitSampledIterator(AbstractDataIterator):
     Iterates over data sampled from Jan's model on TIMIT
     """
 
-    def __init__(self, filename, phone_dict=None, sampled_file=None, sources=('x', 'y'), subset='train', level='words'):
+    def __init__(self, filename, state, phone_dict=None, sampled_file=None, sources=('x', 'y'), subset='train', level='words'):
         AbstractDataIterator.__init__(self, source_names=sources)
         self.subset = subset
+        self.state = state
 
         with open(filename, 'rt') as finp:
             data_dict = cPickle.load(finp)
@@ -513,7 +514,7 @@ class TimitSampledIterator(AbstractDataIterator):
     def next(self, peek=False):
         if self.position >= self.size:
             raise StopIteration()
-        utt_phones = self.data_phones[self.position]
+        utt_phones = np.append(self.data_phones[self.position], self.state['null_sym_source'])
         if self.subset == 'train':
             utt_name = self.data_utt_names[self.position]
             utt_targets = self.utt_to_text[utt_name]
@@ -587,7 +588,8 @@ def get_cmu_batch_iterator(subset, state, rng, logger, single_utterances=False, 
                 sampled_file=state['sampled'],
                 phone_dict=create_phone_map(),
                 sources=sources,
-                subset=subset
+                subset=subset,
+                state=state
             )
         if subset != 'train':
             return sequence_iterator
